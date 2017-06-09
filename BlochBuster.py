@@ -356,15 +356,6 @@ def configParser(configFile):
 def filename(dir, frame): return dir + '/' + format(frame+1, '04') + '.png'
 
 
-def findImageMagick():
-    for baseDir in [r'C:/Program Files/', r'C:/Program Files (x86)/']:
-        for dir in os.listdir(baseDir):
-            subdir = baseDir + dir
-            if dir.startswith('ImageMagick') and os.path.isdir(subdir):
-                return subdir
-    return r'.'
-
-
 # Main program
 def BlochBuster(configFile, leapFactor=1, blackBackground=False):
     if blackBackground:
