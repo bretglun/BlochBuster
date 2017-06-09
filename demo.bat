@@ -1,1 +1,0 @@
-python BlochBuster.py -c config/SE_CPMG.txt -l 1
