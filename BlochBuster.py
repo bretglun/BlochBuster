@@ -33,9 +33,12 @@ colors = {  'bg': [1,1,1],
             'text': [.05,.05,.05], 
             'spoilText': [80/256,0,0],
             'RFText': [0,80/256,0],
-            'comps': [[0,176/256,80/256], 'cadetblue',
-                      'darkolivegreen', 'darkslateblue',
-                      'green', 'lightslategray', 'blue', 'brown']}
+            'comps': [  [.3,.5,.2],
+                        [.1,.4,.5],
+                        [.5,.3,.2],
+                        [.5,.4,.1],
+                        [.4,.1,.5],
+                        [.6,.1,.3]]}
 
 class Arrow3D(FancyArrowPatch):
     def __init__(self, xs, ys, zs, *args, **kwargs):
