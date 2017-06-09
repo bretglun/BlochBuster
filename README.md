@@ -1,18 +1,18 @@
-# Copyright (c) 2017 Johan Berglund
-# BlochBuster is distributed under the terms of the GNU General Public License
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*Copyright (c) 2017 Johan Berglund*
+*BlochBuster is distributed under the terms of the GNU General Public License*
+
+*This program is free software: you can redistribute it and/or modify*
+*it under the terms of the GNU General Public License as published by*
+*the Free Software Foundation, either version 3 of the License, or*
+*(at your option) any later version.*
+
+*This program is distributed in the hope that it will be useful,*
+*but WITHOUT ANY WARRANTY; without even the implied warranty of*
+*MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the*
+*GNU General Public License for more details.*
+
+*You should have received a copy of the GNU General Public License*
+*along with this program.  If not, see <http://www.gnu.org/licenses/>.*
 
 ABOUT
 -------------------------------------------------------------------------------
@@ -26,8 +26,10 @@ with BlochBuster for details.
 
 HOW TO USE
 -------------------------------------------------------------------------------
-Example 1: python BlochBuster.py -c "config/SE.txt"
-Example 2: python BlochBuster.py -c "config/STIR.txt" -l 5
+`Example 1: python BlochBuster.py -c "config/SE.txt"`
+
+`Example 2: python BlochBuster.py -c "config/STIR.txt" -l 5`
+
 The -c flag specifies which configuration file to use as input.
 The -l flag is optional and specifies a leap factor, allowing frames to be 
 skipped when generating the video file. This enables fast preview for testing.
@@ -40,7 +42,7 @@ ImageMagick should be installed (www.imagemagick.org).
 
 CONTACT INFORMATION
 -------------------------------------------------------------------------------
-Johan Berglund, Ph.D.
-Karolinska Institutet, 
-Stockholm, Sweden
+Johan Berglund, Ph.D.  
+Karolinska Institutet,  
+Stockholm, Sweden  
 johan.berglund@neuroradkarolinska.se
