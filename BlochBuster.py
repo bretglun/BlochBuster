@@ -124,21 +124,22 @@ def plotFrameMT(names, comps, title, clock, frame, plotType):
         ymin, ymax = 0, 1
     elif plotType == 'z':
         ymin, ymax = -1, 1
-    fig = plt.figure(figsize=(5, 2.7))
-    ax = fig.gca(xlim=(xmin, xmax), ylim=(ymin, ymax))
+    fig = plt.figure(figsize=(5, 2.7), facecolor=colors['bg'])
+    ax = fig.gca(xlim=(xmin, xmax), ylim=(ymin, ymax), fc=colors['bg'])
     for side in ['bottom', 'right', 'top', 'left']:
         ax.spines[side].set_visible(False)  # remove default axes
     ax.grid()
-    plt.title(title)
-    plt.xlabel('time[ms]', horizontalalignment='right')
+    plt.title(title, color=colors['text'])
+    plt.xlabel('time[ms]', horizontalalignment='right', color=colors['text'])
     if plotType == 'xy':
         ax.xaxis.set_label_coords(1.1, .1)
-        plt.ylabel('$|M_{xy}|$', rotation=0)
+        plt.ylabel('$|M_{xy}|$', rotation=0, color=colors['text'])
     elif plotType == 'z':
         ax.xaxis.set_label_coords(1.1, .475)
-        plt.ylabel('$M_z$', rotation=0)
+        plt.ylabel('$M_z$', rotation=0, color=colors['text'])
     ax.yaxis.set_label_coords(-.07, .95)
     plt.tick_params(axis='y', labelleft='off')
+    plt.tick_params(axis='x', colors=colors['text'])
     ax.xaxis.set_ticks_position('none')  # tick markers
     ax.yaxis.set_ticks_position('none')
 
@@ -149,14 +150,14 @@ def plotFrameMT(names, comps, title, clock, frame, plotType):
     hl = 1/25*(xmax-xmin)
     yhw = hw/(ymax-ymin)*(xmax-xmin) * height/width  # compute matching arrowhead length and width
     yhl = hl/(xmax-xmin)*(ymax-ymin) * width/height
-    ax.arrow(xmin, 0, (xmax-xmin)*1.05, 0, fc='k', ec='k', lw=1, head_width=hw, head_length=hl, clip_on=False)
-    ax.arrow(0, ymin, 0, (ymax-ymin)*1.05, fc='k', ec='k', lw=1, head_width=yhw, head_length=yhl, clip_on=False)
+    ax.arrow(xmin, 0, (xmax-xmin)*1.05, 0, fc=colors['text'], ec=colors['text'], lw=1, head_width=hw, head_length=hl, clip_on=False, zorder=100)
+    ax.arrow(0, ymin, 0, (ymax-ymin)*1.05, fc=colors['text'], ec=colors['text'], lw=1, head_width=yhw, head_length=yhl, clip_on=False, zorder=100)
     # Draw magnetization vectors
     nVecs = len(comps[0])
     if plotType == 'xy':
         Msum = np.zeros([2, frame+1])
         for c in range(len(comps)):
-            col = color[(c) % len(color)]
+            col = colors['comps'][(c) % len(colors['comps'])]
             Mxy = np.zeros([2, frame+1])
             for m in range(nVecs):
                 Mxy += comps[c][m][:2, :frame+1]
@@ -164,11 +165,11 @@ def plotFrameMT(names, comps, title, clock, frame, plotType):
             Msum += Mxy
         # Special case: also plot sum of fat and water
         if 'water' in names and 'fat' in names:
-            col = color[(len(comps)) % len(color)]
+            col = colors['comps'][(len(comps)) % len(colors['comps'])]
             ax.plot(clock[:frame+1], np.linalg.norm(Msum, axis=0)/nVecs/len(comps), '-', lw=2, color=col, label=names[c])
     elif plotType == 'z':
         for c in range(len(comps)):
-            col = color[(c) % len(color)]
+            col = colors['comps'][(c) % len(colors['comps'])]
             Mz = np.zeros([frame+1])
             for m in range(nVecs):
                 Mz += comps[c][m][2, :frame+1]
@@ -402,7 +403,7 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False):
                     plotFrameMT(names, comps, title, clock, frame, plotType)
                 file = filename(tmpdir, frame)
                 print(r'Saving frame {}/{} as "{}"'.format(frame+1, nFrames, file))
-                plt.savefig(file)
+                plt.savefig(file, facecolor=plt.gcf().get_facecolor())
                 plt.close()
             if not os.path.isdir(outdir):
                 os.mkdir(outdir)
