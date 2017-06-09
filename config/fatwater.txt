@@ -28,6 +28,9 @@ CompProps: (water,1.0,0.0,870.0,47.0),(fat,1.0,3.4,260.0,84.0)
 # B0 field strength [T]
 B0: 1.5
 
+# B1 field strength [uT] (set >=100 for instant RF pulses)
+B1: 100
+
 # Number of dephasing vectors per component
 Nisochromats: 1
 
