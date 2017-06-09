@@ -27,11 +27,15 @@ import shutil
 import csv
 import optparse
 
-# Define arrow colors
-color = [(0, 176/256, 80/256), 'cadetblue',
-         'darkolivegreen', 'darkslateblue',
-         'green', 'lightslategray', 'blue', 'brown']
-
+colors = {  'bg': (1,1,1), 
+            'comps': [(0,176/256,80/256), 'cadetblue',
+                        'darkolivegreen', 'darkslateblue',
+                        'green', 'lightslategray', 'blue', 'brown'], 
+            'circle': (0,0,0,.02),
+            'axis': 'gray',
+            'text': (.5,0,0), 
+            'spoilText': '#500000',
+            'RFText': '#005000'}
 
 class Arrow3D(FancyArrowPatch):
     def __init__(self, xs, ys, zs, *args, **kwargs):
@@ -49,35 +53,34 @@ class Arrow3D(FancyArrowPatch):
 def plotFrame3D(names, comps, title, clock, frame, spoilTextAlpha, RFTextAlpha, RFText):
     # Create 3D axes
     fig = plt.figure(figsize=(5, 4.7))
-    ax = fig.gca(projection='3d', xlim=(-1, 1), ylim=(-1, 1), zlim=(-1, 1))
+    ax = fig.gca(projection='3d', xlim=(-1, 1), ylim=(-1, 1), zlim=(-1, 1), fc=colors['bg'])
     ax.set_axis_off()
     ax.set_position([-0.26, -0.39, 1.6, 1.58])
 
     # Draw axes circles
     for i in ["x", "y", "z"]:
-        circle = Circle((0, 0), 1, fill=True, lw=1, color=(0, 0, 0, .02))
+        circle = Circle((0, 0), 1, fill=True, lw=1, fc=colors['circle'])
         ax.add_patch(circle)
         art3d.pathpatch_2d_to_3d(circle, z=0, zdir=i)
 
     # Draw x, y, and z axes
-    axColor = 'gray'
-    ax.plot([-1, 1], [0, 0], [0, 0], color=axColor, zorder=-1)  # x-axis
-    ax.text(1.1, 0, 0, r'$x^\prime$', horizontalalignment='center')
-    ax.plot([0, 0], [-1, 1], [0, 0], color=axColor, zorder=-1)  # y-axis
-    ax.text(0, 1.2, 0, r'$y^\prime$', horizontalalignment='center')
-    ax.plot([0, 0], [0, 0], [-1, 1], color=axColor, zorder=-1)  # z-axis
-    ax.text(0, 0, 1.1, r'$z$', horizontalalignment='center')
+    ax.plot([-1, 1], [0, 0], [0, 0], c=colors['axis'], zorder=-1)  # x-axis
+    ax.text(1.1, 0, 0, r'$x^\prime$', horizontalalignment='center', color=colors['text'])
+    ax.plot([0, 0], [-1, 1], [0, 0], c=colors['axis'], zorder=-1)  # y-axis
+    ax.text(0, 1.2, 0, r'$y^\prime$', horizontalalignment='center', color=colors['text'])
+    ax.plot([0, 0], [0, 0], [-1, 1], c=colors['axis'], zorder=-1)  # z-axis
+    ax.text(0, 0, 1.1, r'$z$', horizontalalignment='center', color=colors['text'])
 
     # Draw title:
-    ax.text(0, 0, 1.4, title, fontsize=14, horizontalalignment='center')
+    ax.text(0, 0, 1.4, title, fontsize=14, horizontalalignment='center', color=colors['text'])
     # Draw time
-    time_text = ax.text(-1, -.8, -1, 'time = %.1f msec' % (clock[frame]))
+    time_text = ax.text(-1, -.8, -1, 'time = %.1f msec' % (clock[frame]), color=colors['text'])
 
     # Draw magnetization vectors
     nVecs = len(comps[0])
     for c in range(len(comps)):
         for m in range(nVecs):
-            col = color[(c) % len(color)]
+            col = colors['comps'][(c) % len(colors['comps'])]
             M = comps[c][m]
             alpha = 1.-2*np.abs((m+.5)/nVecs-.5)
             order = int((nVecs-1)/2-abs(m-(nVecs-1)/2))
@@ -91,17 +94,19 @@ def plotFrame3D(names, comps, title, clock, frame, spoilTextAlpha, RFTextAlpha, 
 
     # Draw "spoiler" and "FA-pulse" text
     ax.text(.7, .7, .8, 'spoiler', fontsize=14, alpha=spoilTextAlpha[frame],
-            color='#500000', horizontalalignment='right')
+            color=colors['spoilText'], horizontalalignment='right')
     ax.text(.7, .7, .95, RFText[frame], fontsize=14, alpha=RFTextAlpha[frame],
-            color='#005000', horizontalalignment='right')
+            color=colors['RFText'], horizontalalignment='right')
     # Draw legend:
     handles, labels = ax.get_legend_handles_labels()
     leg = ax.legend(
-                    [plt.Line2D((0, 1), (0, 0), lw=2, color=color[(c) %
-                                len(color)]) for c, handle in enumerate(
+                    [plt.Line2D((0, 1), (0, 0), lw=2, color=colors['comps'][(c) %
+                                len(colors['comps'])]) for c, handle in enumerate(
                                 handles)], labels, loc=2, bbox_to_anchor=[
                                 .14, .83])
     leg.draw_frame(False)
+    for text in leg.get_texts():
+        text.set_color(colors['text'])
 
 
 # Creates an animated plot of magnetization over time plotType='xy' for transversal and 'z' for longitudinal
