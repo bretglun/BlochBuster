@@ -1,5 +1,5 @@
-# This configuration file is used as input to the Bloch simulator BlochBuster v1.2
-# BlochBuster was written 2015 by Johan Berglund, Karolinska University Hospital, Sweden
+# This configuration file is used as input to the Bloch simulator BlochBuster
+# BlochBuster was written 2015 by Johan Berglund, Karolinska Institutet, Sweden
 #
 # The pulse sequence is defined by a comma separated list of triples (FA,T,spoil). Each triple represents:
 # 1. An RF pulse of flip angle FA degrees
@@ -42,5 +42,5 @@ Speed: 0.001
 
 # Output filename (should be .gif)
 Outfile3D: fatwater_3D.gif
-OutfileMxy: fatwater_Mxy.gif
+OutfileMxy: fatwater_tra.gif
 #OutfileMz:

@@ -1,5 +1,5 @@
-# This configuration file is used as input to the Bloch simulator BlochBuster v1.2
-# BlochBuster was written 2015 by Johan Berglund, Karolinska University Hospital, Sweden
+# This configuration file is used as input to the Bloch simulator BlochBuster
+# BlochBuster was written 2015 by Johan Berglund, Karolinska Institutet, Sweden
 #
 # The pulse sequence is defined by a comma separated list of triples (FA,T,spoil). Each triple represents:
 # 1. An RF pulse of flip angle FA degrees
@@ -14,7 +14,7 @@
 # - T2 is the transversal relaxation time [msec]
 
 # Title of the animated plot
-Title: 
+Title: Binomial-7
 
 # Pulse sequence
 PulseSeq: (1.4,2.3,false),(8.4,2.3,false),(21.1,2.3,false),(28.1,2.3,false),(21.1,2.3,false),(8.4,2.3,false),(1.4,7.5,false)

@@ -1,5 +1,5 @@
-# This configuration file is used as input to the Bloch simulator BlochBuster v1.2
-# BlochBuster was written 2015 by Johan Berglund, Karolinska University Hospital, Sweden
+# This configuration file is used as input to the Bloch simulator BlochBuster
+# BlochBuster was written 2015 by Johan Berglund, Karolinska Institutet, Sweden
 #
 # The pulse sequence is defined by a comma separated list of triples (FA,T,spoil). Each triple represents:
 # 1. An RF pulse of flip angle FA degrees
@@ -32,7 +32,7 @@ B0: 1.5
 B1: 100
 
 # Number of dephasing vectors per component
-Nisochromats: 15
+Nisochromats: 1
 
 # Resonance shift steplength [ppm] for dephasing vectors
 IsochromatStep: 0.005
@@ -42,5 +42,5 @@ Speed: 0.1
 
 # Output filename (should be .gif)
 Outfile3D: FLAIR_3D.gif
-OutfileMxy: FLAIR_Mxy.gif
-OutfileMz: FLAIR_Mz.gif
+#OutfileMxy:
+OutfileMz: FLAIR_long.gif

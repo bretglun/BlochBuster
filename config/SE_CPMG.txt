@@ -1,5 +1,5 @@
-# This configuration file is used as input to the Bloch simulator BlochBuster v1.2
-# BlochBuster was written 2015 by Johan Berglund, Karolinska University Hospital, Sweden
+# This configuration file is used as input to the Bloch simulator BlochBuster
+# BlochBuster was written 2015 by Johan Berglund, Karolinska Institutet, Sweden
 #
 # The pulse sequence is defined by a comma separated list of triples (FA,T,spoil). Each triple represents:
 # 1. An RF pulse of flip angle FA degrees
@@ -14,10 +14,10 @@
 # - T2 is the transversal relaxation time [msec]
 
 # Title of the animated plot
-Title: 90$_y$-180$_x$-180$_x$-180$_x$-180$_x$
+Title: FSE (CPMG)
 
 # Pulse sequence
-PulseSeq: (90,10,false),(180j,20,false),(180j,20,false),(180j,20,false),(180j,20,false)
+PulseSeq: (90,10,false),(180j,20,false),(180j,20,false),(180j,20,false),(180j,60,false)
 
 # Number of repetitions
 Nreps: 1
@@ -32,7 +32,7 @@ B0: 1.5
 B1: 100
 
 # Number of dephasing vectors per component
-Nisochromats: 40
+Nisochromats: 30
 
 # Resonance shift steplength [ppm] for dephasing vectors
 IsochromatStep: 0.02
@@ -41,6 +41,6 @@ IsochromatStep: 0.02
 Speed: 0.01
 
 # Output filenames (should be .gif)
-Outfile3D: SE_CPMG_3D.gif
-OutfileMxy: SE_CPMG_tra.gif
+Outfile3D: FSE_CPMG_3D.gif
+#OutfileMxy:
 #OutfileMz:
