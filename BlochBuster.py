@@ -26,8 +26,6 @@ import os.path
 import shutil
 import csv
 import optparse
-import subprocess
-import winreg
 
 # Define arrow colors
 color = [(0, 176/256, 80/256), 'cadetblue',
@@ -361,16 +359,6 @@ def findImageMagick():
 
 # Main program
 def BlochBuster(configFile, leapFactor=1):
-    # Prepare for using convert.exe from ImageMagick
-    try:  # Windows only:
-        ImageMagickKey = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r'SOFTWARE\ImageMagick\\Current', 0, (winreg.KEY_WOW64_64KEY + winreg.KEY_ALL_ACCESS))
-        ConvertExePath = winreg.QueryValueEx(ImageMagickKey, "BinPath")[0]
-    except WindowsError:
-        ConvertExePath = findImageMagick()
-    convert = ConvertExePath + r'\convert.exe'
-    if not os.path.isfile(convert):
-        raise Exception('ImageMagick:s convert.exe is required but was not found')
-    compress = r'-layers Optimize'
     # Read configuration file
     title, pulseSeq, Nreps, names, compProps, B0, B1, Nisochromats, isochromatStep, speed, outfile3D, outfileMxy, outfileMz = configParser(configFile)
     instantRF = B1 >= 100		# B1=100 means instant RF pulses
@@ -418,9 +406,8 @@ def BlochBuster(configFile, leapFactor=1):
                 os.mkdir(outdir)
             outfile = r'./out/'+outfile
             print(r'Creating animated gif "{}"'.format(outfile))
-            p = subprocess.Popen('{} {} -delay {} {}/*png {}'.format(convert, compress, delay, tmpdir, outfile))
-            p.wait()
-            p.communicate()
+            compress = r'-layers Optimize'
+            os.system(('convert {} -delay {} {}/*png {}'.format(compress, delay, tmpdir, outfile)))
             shutil.rmtree(tmpdir)
 
 
