@@ -27,15 +27,15 @@ import shutil
 import csv
 import optparse
 
-colors = {  'bg': (1,1,1), 
-            'comps': [(0,176/256,80/256), 'cadetblue',
-                        'darkolivegreen', 'darkslateblue',
-                        'green', 'lightslategray', 'blue', 'brown'], 
-            'circle': (0,0,0,.02),
-            'axis': 'gray',
-            'text': (.5,0,0), 
-            'spoilText': '#500000',
-            'RFText': '#005000'}
+colors = {  'bg': [1,1,1], 
+            'circle': [0,0,0,.03],
+            'axis': [.5,.5,.5],
+            'text': [.05,.05,.05], 
+            'spoilText': [80/256,0,0],
+            'RFText': [0,80/256,0],
+            'comps': [[0,176/256,80/256], 'cadetblue',
+                      'darkolivegreen', 'darkslateblue',
+                      'green', 'lightslategray', 'blue', 'brown']}
 
 class Arrow3D(FancyArrowPatch):
     def __init__(self, xs, ys, zs, *args, **kwargs):
@@ -363,7 +363,10 @@ def findImageMagick():
 
 
 # Main program
-def BlochBuster(configFile, leapFactor=1):
+def BlochBuster(configFile, leapFactor=1, blackBackground=False):
+    if blackBackground:
+        for i in ['bg', 'axis', 'text', 'circle']:
+            colors[i][:3] = list(map(lambda x: 1-x, colors[i][:3]))
     # Read configuration file
     title, pulseSeq, Nreps, names, compProps, B0, B1, Nisochromats, isochromatStep, speed, outfile3D, outfileMxy, outfileMz = configParser(configFile)
     instantRF = B1 >= 100		# B1=100 means instant RF pulses
@@ -422,9 +425,10 @@ def main():
     p = optparse.OptionParser()
     p.add_option('--configFile', '-c', default='',  type="string", help="Name of configuration text file")
     p.add_option('--leapFactor', '-l', default=1, type="int", help="Leap factor for smaller filesize and fewer frames per second")
+    p.add_option('--blackBackground', '-b', action="store_true", dest="blackBackground", default=False, help="Plot with black background")
     # Parse command line
     options, arguments = p.parse_args()
-    BlochBuster(options.configFile, options.leapFactor)
+    BlochBuster(options.configFile, options.leapFactor, options.blackBackground)
 
 if __name__ == '__main__':
     main()

@@ -1,4 +1,4 @@
-*Copyright (c) 2017 Johan Berglund*
+*Copyright (c) 2017 Johan Berglund*  
 *BlochBuster is distributed under the terms of the GNU General Public License*
 
 *This program is free software: you can redistribute it and/or modify*
@@ -28,11 +28,11 @@ HOW TO USE
 -------------------------------------------------------------------------------
 `Example 1: python BlochBuster.py -c "config/SE.txt"`
 
-`Example 2: python BlochBuster.py -c "config/STIR.txt" -l 5`
+`Example 2: python BlochBuster.py -c "config/STIR.txt" -l 5 -b`
 
-The -c flag specifies which configuration file to use as input.
-The -l flag is optional and specifies a leap factor, allowing frames to be 
-skipped when generating the video file. This enables fast preview for testing.
+The -c flag specifies which configuration file to use as input.  
+The -l flag is optional and specifies a leap factor, allowing frames to be skipped when generating the video file. This enables fast preview for testing.  
+The -b flag toggles black background.
 
 DEPENDENCIES
 -------------------------------------------------------------------------------
