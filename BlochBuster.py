@@ -1,4 +1,4 @@
-# Copyright (c) 2015 Johan Berglund
+# Copyright (c) 2017 Johan Berglund
 # BlochBuster is distributed under the terms of the GNU General Public License
 #
 # This program is free software: you can redistribute it and/or modify
@@ -26,6 +26,7 @@ import os.path
 import shutil
 import csv
 import optparse
+import json
 
 colors = {  'bg': [1,1,1], 
             'circle': [0,0,0,.03],
@@ -199,11 +200,11 @@ def applyPulseSeq(Meq, w, T1, T2, pulseSeq, w1, Nreps=1, dt=0.1, instantRF=False
     # Initial state is equilibrium magnetization
     M = np.array([[0.], [0.], [Meq]])
     for rep in range(Nreps):
-        for (FA, T, spoiler) in pulseSeq:
+        for pulse in pulseSeq:
             # RF-pulse:
-            dur = radians(abs(FA))/w1  # RF pulse duration
+            dur = radians(abs(pulse['FA']))/w1  # RF pulse duration
             t = np.arange(0, dur+dt, dt)
-            w1_adj = radians(FA)/((len(t)-1)*dt)  # adjust w1 to fit FA to integer number of frames
+            w1_adj = radians(pulse['FA'])/((len(t)-1)*dt)  # adjust w1 to fit FA to integer number of frames
             if instantRF:
                 M1 = integrate.odeint(derivs, M[:, -1], t, args=(Meq, 0., w1_adj, np.inf, np.inf))
             else:
@@ -211,25 +212,25 @@ def applyPulseSeq(Meq, w, T1, T2, pulseSeq, w1, Nreps=1, dt=0.1, instantRF=False
             M = np.concatenate((M, M1[1:].transpose()), axis=1)
             # Then relaxation
             if instantRF:
-                t = np.arange(0, T+dt, dt)
+                t = np.arange(0, pulse['T']+dt, dt)
             else:
-                t = np.arange(0, T-dur+dt, dt)
+                t = np.arange(0, pulse['T']-dur+dt, dt)
             M1 = integrate.odeint(derivs, M[:, -1], t, args=(Meq, w, 0., T1, T2))
             M = np.concatenate((M, M1[1:].transpose()), axis=1)
             # Then spoiling
-            if spoiler:
+            if pulse['spoil']:
                 M[:, -1] = spoil(M[:, -1])
     return M
 
 
 # Simulate Nisochromats dephasing magnetization vectors of component defined by compProps
-def simulateComponent(compProps, w0, Nisochromats, isochromatStep, pulseSeq, w1, Nreps=1, dt=0.1, instantRF=False):
+def simulateComponent(component, w0, Nisochromats, isochromatStep, pulseSeq, w1, Nreps=1, dt=0.1, instantRF=False):
     # Shifts in ppm for dephasing vectors:
-    isochromats = [(2*i+1-Nisochromats)/2*isochromatStep+compProps[1] for i in range(0, Nisochromats)]
+    isochromats = [(2*i+1-Nisochromats)/2*isochromatStep+component['CS'] for i in range(0, Nisochromats)]
     comp = []
     for isochromat in isochromats:
         w = w0*isochromat*.000001  # Demodulated frequency [krad]
-        comp.append(applyPulseSeq(compProps[0], w, compProps[2], compProps[3], pulseSeq, w1, Nreps, dt, instantRF))
+        comp.append(applyPulseSeq(component['Meq'], w, component['T1'], component['T2'], pulseSeq, w1, Nreps, dt, instantRF))
     return comp
 
 
@@ -242,11 +243,11 @@ def getClockSpoilAndRFText(pulseSeq, Nreps, w1, dt, instantRF=False):
     RFTextAlpha = [0.]
     RFText = ['']
     for rep in range(Nreps):
-        for (FA, T, spoiler) in pulseSeq:
-            RF = str(int(abs(FA)))+u'\N{DEGREE SIGN}'+'-pulse'
+        for pulse in pulseSeq:
+            RF = str(int(abs(pulse['FA'])))+u'\N{DEGREE SIGN}'+'-pulse'
             # TODO: add info about the RF phase angle
             # Frames during RF pulse
-            dur = radians(abs(FA))/w1  # RF pulse duration
+            dur = radians(abs(pulse['FA']))/w1  # RF pulse duration
             t = np.arange(dt, dur+dt, dt)
             if instantRF:
                 clock.extend(np.full(t.shape, clock[-1]))  # Clock stands still during instant RF pulse
@@ -257,15 +258,15 @@ def getClockSpoilAndRFText(pulseSeq, Nreps, w1, dt, instantRF=False):
             RFText += [RF]*len(t)
             # Frames during relaxation
             if instantRF:
-                t = np.arange(dt, T+dt, dt)
+                t = np.arange(dt, pulse['T']+dt, dt)
             else:
-                t = np.arange(dt, T-dur+dt, dt)
+                t = np.arange(dt, pulse['T']-dur+dt, dt)
             clock.extend(t+clock[-1])  # Increment clock during relaxation time T
             spoilTextAlpha.extend(np.linspace(spoilTextAlpha[-1], spoilTextAlpha[-1]-len(t)*decrPerFrame, num=len(t)))
             RFTextAlpha.extend(np.linspace(RFTextAlpha[-1], RFTextAlpha[-1]-len(t)*decrPerFrame, num=len(t)))
             RFText += [RF]*len(t)
             # Spoiling
-            if spoiler:
+            if pulse['spoil']:
                 spoilTextAlpha[-1] = 1.
     # Clip at zero
     spoilTextAlpha = [max(alpha, 0) for alpha in spoilTextAlpha]
@@ -307,7 +308,7 @@ def readCompProps(paramString):
         compProps.append((float(Meq), float(shift), float(T1), float(T2)))
     return names, compProps
 
-
+# TODO: remove this, but keep documentation somewhere
 # Read input parameters to simulation and animation from configuration file
 def configParser(configFile):
     # Set default values
@@ -363,27 +364,29 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False):
         for i in ['bg', 'axis', 'text', 'circle']:
             colors[i][:3] = list(map(lambda x: 1-x, colors[i][:3]))
     # Read configuration file
-    title, pulseSeq, Nreps, names, compProps, B0, B1, Nisochromats, isochromatStep, speed, outfile3D, outfileMxy, outfileMz = configParser(configFile)
-    instantRF = B1 >= 100		# B1=100 means instant RF pulses
-    B1 = B1/1000000.			# convert uT->T
+    with open(configFile, 'r') as f:
+        config = json.load(f)
+    
+    instantRF = config['B1'] >= 100	# B1=100 means instant RF pulses
+    config['B1'] = config['B1']/10**6			# convert uT->T
     # Calculations
     fps = 15.				# Frames per second in animation (<=15 should be supported by powepoint)
-    dt = 1000./fps*speed 	# Time resolution [msec]
+    dt = 1000./fps*config['speed'] 	# Time resolution [msec]
     gyro = 42577.			# Gyromagnetic ratio [kHz/T]
     if instantRF:
-        B1 = 1/(gyro*dt*72)  # Set duration of a 360-pulse to 72 frames
-    w0 = 2*np.pi*gyro*B0  # Larmor frequency [kRad]
-    w1 = 2*np.pi*gyro*B1  # B1 rotation frequency [kRad]
+        config['B1'] = 1/(gyro*dt*72)  # Set duration of a 360-pulse to 72 frames
+    w0 = 2*np.pi*gyro*config['B0']  # Larmor frequency [kRad]
+    w1 = 2*np.pi*gyro*config['B1']  # B1 rotation frequency [kRad]
     # Simulate
     comps = []
-    for compProp in compProps:
-        comps.append(simulateComponent(compProp, w0, Nisochromats, isochromatStep, pulseSeq, w1, Nreps, dt, instantRF))
+    for component in config['compProps']:
+        comps.append(simulateComponent(component, w0, config['nIsochromats'], config['isochromatStep'], config['pulseSeq'], w1, config['nTR'], dt, instantRF))
     # Animate
-    clock, spoilTextAlpha, RFTextAlpha, RFText = getClockSpoilAndRFText(pulseSeq, Nreps, w1, dt, instantRF)
+    clock, spoilTextAlpha, RFTextAlpha, RFText = getClockSpoilAndRFText(config['pulseSeq'], config['nTR'], w1, dt, instantRF)
     delay = int(100/fps*leapFactor)  # Delay between frames in ticks of 1/100 sec
     nFrames = len(comps[0][0][0])
-    if not outfile3D+outfileMxy+outfileMz:
-        raise Exception('No outfile (Outfile3D/OutfileMxy/OutfileMz) was found in config')
+    if not config['outFile3D']+config['outFileMxy']+config['outFileMz']:
+        raise Exception('No outfile (outFile3D/outFileMxy/outFileMz) was found in config')
     tmpdir = r'./tmp'
     outdir = r'./out'
     if os.path.isdir(tmpdir):
@@ -392,15 +395,16 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False):
             shutil.rmtree(tmpdir)
         else:
             raise Exception('No files written.')
-    for (plotType, outfile) in [('3D', outfile3D), ('xy', outfileMxy), ('z', outfileMz)]:
+    for (plotType, outfile) in [('3D', config['outFile3D']), ('xy', config['outFileMxy']), ('z', config['outFileMz'])]:
         if outfile:
             os.mkdir(tmpdir)
+            names = [comp['name'] for comp in config['compProps']]
             for frame in range(0, nFrames, leapFactor):
                 # Use only every leapFactor frame in animation
                 if plotType == '3D':
-                    plotFrame3D(names, comps, title, clock, frame, spoilTextAlpha, RFTextAlpha, RFText)
+                    plotFrame3D(names, comps, config['title'], clock, frame, spoilTextAlpha, RFTextAlpha, RFText)
                 else:
-                    plotFrameMT(names, comps, title, clock, frame, plotType)
+                    plotFrameMT(names, comps, config['title'], clock, frame, plotType)
                 file = filename(tmpdir, frame)
                 print(r'Saving frame {}/{} as "{}"'.format(frame+1, nFrames, file))
                 plt.savefig(file, facecolor=plt.gcf().get_facecolor())
