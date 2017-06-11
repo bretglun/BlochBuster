@@ -301,8 +301,8 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False):
     config['pulseSeq'] = sorted(config['pulseSeq'], key=lambda pulse: pulse['t']) 
     # Set complex flip angles
     for pulse in config['pulseSeq']:
-        if 'FAj' in pulse:
-            pulse['FA'] = pulse['FA'] + 1j*pulse['FAj']
+        if 'phase' in pulse:
+            pulse['FA'] = pulse['FA']*np.exp(1j*radians(pulse['phase']))
 
     instantRF = config['B1'] >= 100	# B1=100 means instant RF pulses
     config['B1'] /= 1e6			# convert uT->T
