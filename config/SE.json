@@ -1,11 +1,12 @@
 {
     "title": "Spin Echo", 
     "pulseSeq": [
-        {"FA": 90, "T": 10, "spoil": false}, 
-        {"FA": 180, "T": 40, "spoil": false}
-        ], 
+        {"t": 0, "FA": 90}, 
+        {"t": 10, "FA": 180}
+        ],
+    "TR": 40,
     "nTR": 1, 
-    "compProps": [
+    "components": [
         {"name": "", "Meq": 1.0, "CS": 0.0, "T1": 790.0, "T2": 92.0}
         ], 
     "B0": 1.5, 
