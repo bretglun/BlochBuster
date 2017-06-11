@@ -205,7 +205,6 @@ def applyPulseSeq(Meq, w, T1, T2, pulseSeq, TR, w1, nTR=1, dt=0.1, instantRF=Fal
         M1 = integrate.odeint(derivs, M[:, -1], t, args=(Meq, w, 0., T1, T2))
         M = np.concatenate((M, M1[1:].transpose()), axis=1)
         for p, pulse in enumerate(pulseSeq):
-            print(pulse['FA'])
             if pulse['FA']==0: # Interpreted as spoiling
                 dur = 0
                 M[:, -1] = spoil(M[:, -1])
@@ -285,87 +284,6 @@ def getClockSpoilAndRFText(pulseSeq, TR, nTR, w1, dt, instantRF=False):
     spoilTextAlpha = [max(alpha, 0) for alpha in spoilTextAlpha]
     RFTextAlpha = [max(alpha, 0) for alpha in RFTextAlpha]
     return clock, spoilTextAlpha, RFTextAlpha, RFText
-
-
-def isTrue(string): return string.lower() == 'true' or string.lower() == 'yes' or string == '1'
-
-
-# Read pulse sequence from string. The pulse sequence is defined by a comma separated
-# list of triples (FA,T,spoil). Each triple represents:
-# 1. An RF pulse of flip angle FA degrees
-# 2. Relaxation during T msec
-# 3. Optional spoiling of any transverse magnetization [true/false]
-def readPulseSeq(seqString):
-    pulseSeq = []
-    pulses = seqString.replace(' ', '')[1:-1].split('),(')
-    for pulse in pulses:
-        FA, T, spoil = pulse.split(',')
-        pulseSeq.append((complex(FA), float(T), isTrue(spoil)))
-    return pulseSeq
-
-
-# Read component properties from string. The signal components (tissues) are defined by a
-# comma separated list of component properties (name,Meq,shift,T1,T2):
-# - name is the denomination that will be used in the figure legend (can be left blank)
-# - Meq is the magnitude of the equilibrium magnetization
-# - shift is the chemical shift [ppm]
-# - T1 is the longitudinal relaxation time [msec]
-# - T2 is the transversal relaxation time [msec]
-def readCompProps(paramString):
-    names = []
-    compProps = []
-    comps = paramString.replace(' ', '')[1:-1].split('),(')
-    for comp in comps:
-        name, Meq, shift, T1, T2 = comp.split(',')
-        names.append(name)
-        compProps.append((float(Meq), float(shift), float(T1), float(T2)))
-    return names, compProps
-
-# TODO: remove this, but keep documentation somewhere
-# Read input parameters to simulation and animation from configuration file
-def configParser(configFile):
-    # Set default values
-    title = 'Default'				# Title of animation
-    pulseSeq = ((90, 10, False),)		# Gradient echo pulse sequence
-    nTR = 1 						# Number of repetitions
-    names = ('',)					# List of component names
-    compProps = ((1., 0., 260., 84.),)  # List of component properties (Meq,shift,T1,T2)
-    B0 = 1.5             			# B0 field strength [T]
-    B1 = 5             				# B1 field strength [uT]
-    Nisochromats = 15 				# Number of isochromat per component
-    isochromatStep = .02			# Resonance shift steplength [ppm] between isochromats
-    speed = .01 					# Animation speed factor
-    outfile3D = ''					# Output filename for 3D animation (should be .gif)
-    outfileMxy = ''					# Output filename for transversal magnetization (should be .gif)
-    outfileMz = ''					# Output filename for longitudinal magnetization (should be .gif)
-    if os.path.isfile(configFile):
-        for row in csv.reader(open(configFile, 'rt'), delimiter=':'):
-            if row and not row[0].startswith('#'):
-                if row[0] == 'Title':
-                    title = row[1].strip()
-                elif row[0] == 'PulseSeq':
-                    pulseSeq = readPulseSeq(row[1])
-                elif row[0] == 'nTR':
-                    nTR = int(row[1])
-                elif row[0] == 'CompProps':
-                    names, compProps = readCompProps(row[1])
-                elif row[0] == 'B0':
-                    B0 = float(row[1])
-                elif row[0] == 'B1':
-                    B1 = float(row[1])
-                elif row[0] == 'Nisochromats':
-                    Nisochromats = int(row[1])
-                elif row[0] == 'IsochromatStep':
-                    isochromatStep = float(row[1])
-                elif row[0] == 'Speed':
-                    speed = float(row[1])
-                elif row[0] == 'Outfile3D':
-                    outfile3D = row[1].strip()
-                elif row[0] == 'OutfileMxy':
-                    outfileMxy = row[1].strip()
-                elif row[0] == 'OutfileMz':
-                    outfileMz = row[1].strip()
-    return title, pulseSeq, nTR, names, compProps, B0, B1, Nisochromats, isochromatStep, speed, outfile3D, outfileMxy, outfileMz
 
 
 def filename(dir, frame): return dir + '/' + format(frame+1, '04') + '.png'
