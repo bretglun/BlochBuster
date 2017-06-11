@@ -231,7 +231,7 @@ def applyPulseSeq(Meq, w, T1, T2, pulseSeq, TR, w1, nTR=1, dt=0.1, instantRF=Fal
     return M
 
 
-# Simulate Nisochromats dephasing magnetization vectors of component defined by compProps
+# Simulate Nisochromats dephasing magnetization vectors per component
 def simulateComponent(component, w0, Nisochromats, isochromatStep, pulseSeq, TR, w1, nTR=1, dt=0.1, instantRF=False):
     # Shifts in ppm for dephasing vectors:
     isochromats = [(2*i+1-Nisochromats)/2*isochromatStep+component['CS'] for i in range(0, Nisochromats)]
@@ -316,7 +316,7 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False):
     w1 = 2*np.pi*gyro*config['B1']  # B1 rotation frequency [kRad]
     # Simulate
     comps = []
-    for component in config['compProps']:
+    for component in config['components']:
         comps.append(simulateComponent(component, w0, config['nIsochromats'], config['isochromatStep'], config['pulseSeq'], config['TR'], w1, config['nTR'], dt, instantRF))
     # Animate
     clock, spoilTextAlpha, RFTextAlpha, RFText = getClockSpoilAndRFText(config['pulseSeq'], config['TR'], config['nTR'], w1, dt, instantRF)
@@ -335,7 +335,7 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False):
     for (plotType, outfile) in [('3D', config['outFile3D']), ('xy', config['outFileMxy']), ('z', config['outFileMz'])]:
         if outfile:
             os.mkdir(tmpdir)
-            names = [comp['name'] for comp in config['compProps']]
+            names = [comp['name'] for comp in config['components']]
             for frame in range(0, nFrames, leapFactor):
                 # Use only every leapFactor frame in animation
                 if plotType == '3D':
