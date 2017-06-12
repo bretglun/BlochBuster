@@ -9,11 +9,11 @@
         ],
     "TR": 130,
     "nTR": 1, 
+    "B0": 1.5, 
+    "B1": 100, 
     "components": [
        {"name": "", "Meq": 1.0, "CS": 0.0, "T1": 1e9, "T2": 100}
         ], 
-    "B0": 1.5, 
-    "B1": 100, 
     "nIsochromats": 30, 
     "isochromatStep": 0.02, 
     "speed": 0.01, 

@@ -5,12 +5,12 @@
         ],
     "TR": 15,
     "nTR": 1, 
+    "B0": 1.5, 
+    "B1": 100, 
     "components": [
        {"name": "water", "Meq": 1.0, "CS": 0.0, "T1": 870, "T2": 47},
        {"name": "fat", "Meq": 1.0, "CS": 3.4, "T1": 260, "T2": 84}
         ], 
-    "B0": 1.5, 
-    "B1": 100, 
     "nIsochromats": 1, 
     "isochromatStep": 0.01, 
     "speed": 0.001, 
