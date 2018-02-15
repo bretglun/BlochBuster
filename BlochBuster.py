@@ -324,10 +324,10 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False):
     nFrames = len(comps[0][0][0])
     if not config['outFile3D']+config['outFileMxy']+config['outFileMz']:
         raise Exception('No outfile (outFile3D/outFileMxy/outFileMz) was found in config')
-    tmpdir = r'./tmp'
-    outdir = r'./out'
+    tmpdir = './tmp'
+    outdir = './out'
     if os.path.isdir(tmpdir):
-        rmTmpDir = input(r'Temporary folder "{}" already exists. Delete(Y/N)?'.format(tmpdir))
+        rmTmpDir = input('Temporary folder "{}" already exists. Delete(Y/N)?'.format(tmpdir))
         if rmTmpDir.upper() == 'Y':
             shutil.rmtree(tmpdir)
         else:
@@ -343,14 +343,14 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False):
                 else:
                     plotFrameMT(names, comps, config['title'], clock, frame, plotType)
                 file = filename(tmpdir, frame)
-                print(r'Saving frame {}/{} as "{}"'.format(frame+1, nFrames, file))
+                print('Saving frame {}/{} as "{}"'.format(frame+1, nFrames, file))
                 plt.savefig(file, facecolor=plt.gcf().get_facecolor())
                 plt.close()
             if not os.path.isdir(outdir):
                 os.mkdir(outdir)
-            outfile = r'./out/'+outfile
-            print(r'Creating animated gif "{}"'.format(outfile))
-            compress = r'-layers Optimize'
+            outfile = './out/'+outfile
+            print('Creating animated gif "{}"'.format(outfile))
+            compress = '-layers Optimize'
             os.system(('convert {} -delay {} {}/*png {}'.format(compress, delay, tmpdir, outfile)))
             shutil.rmtree(tmpdir)
 
