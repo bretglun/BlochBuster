@@ -1,0 +1,22 @@
+title: "Spin Echo"
+pulseSeq:
+    - t: 0
+      FA: 90
+    - t: 10
+      FA: 180
+TR: 40
+nTR: 1 
+B0: 1.5 
+B1: 1.0  
+components:
+    - name: ""
+      Meq: 1.0
+      CS: 0.0
+      T1: 790.0
+      T2: 92.0
+nIsochromats: 20
+isochromatStep: 0.01
+speed: 0.01
+outFile3D: "SE_3D.gif"
+outFileMxy: ""
+outFileMz: ""

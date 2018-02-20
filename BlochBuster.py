@@ -26,7 +26,7 @@ import os.path
 import shutil
 import csv
 import optparse
-import json
+import yaml
 
 colors = {  'bg': [1,1,1], 
             'circle': [0,0,0,.03],
@@ -296,7 +296,10 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False):
             colors[i][:3] = list(map(lambda x: 1-x, colors[i][:3]))
     # Read configuration file
     with open(configFile, 'r') as f:
-        config = json.load(f)
+        try:
+            config = yaml.load(f)
+        except yaml.YAMLError as exc:
+            print(exc)
     # Assert pulses in pulseSeq are sorted according to time
     config['pulseSeq'] = sorted(config['pulseSeq'], key=lambda pulse: pulse['t']) 
     # Set complex flip angles
