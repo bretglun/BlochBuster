@@ -300,7 +300,7 @@ def filename(dir, frame): return dir + '/' + format(frame+1, '04') + '.png'
 
 
 # Main program
-def BlochBuster(configFile, leapFactor=1, blackBackground=False, useffmpeg = True):
+def BlochBuster(configFile, leapFactor=1, blackBackground=False, useFFMPEG = True):
     if blackBackground:
         for i in ['bg', 'axis', 'text', 'circle']:
             colors[i][:3] = list(map(lambda x: 1-x, colors[i][:3]))
@@ -349,7 +349,9 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False, useffmpeg = Tru
         if outfile:
             os.makedirs(outdir, exist_ok=True)
             outfile = os.path.join(outdir, outfile)
-            if not useffmpeg:
+            if useFFMPEG:
+                imgString = []
+            else:
                 os.makedirs(tmpdir, exist_ok=True)
             names = [comp['name'] for comp in config['components']]
             for frame in range(0, nFrames, leapFactor):
@@ -359,49 +361,47 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False, useffmpeg = Tru
                 else:
                     fig = plotFrameMT(names, comps, config['title'], clock, frame, plotType)
                 plt.draw()
-                if useffmpeg:
-                    if frame == 0:
-                        canvas_width, canvas_height = fig.canvas.get_width_height()
-                        if '.gif' in outfile:
-                            paletteCmd = ('ffmpeg', 
-                                '-s', '{}x{}'.format(canvas_width, canvas_height), 
-                                '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-i', '-', 
-                                '-filter_complex', 'palettegen=stats_mode=diff', '-y', 'palette.png')
-                            paletteProcess = subprocess.Popen(paletteCmd, stdin=subprocess.PIPE)
-                            animationCmd = ('ffmpeg', 
-                                '-y', # overwrite output file
-                                '-r', str(fps), # frame rate
-                                '-s', '{}x{}'.format(canvas_width, canvas_height), # size of image string
-                                '-pix_fmt', 'rgb24', # format
-                                '-f', 'rawvideo',  '-i', '-', # tell ffmpeg to expect raw video from the pipe
-                                '-i', 'palette.png', '-filter_complex', 'paletteuse',
-                                '-vframes', str(len(range(0, nFrames, leapFactor))), # number of frames
-                                outfile) # file name
-                        elif '.mp4' in outfile:
-                            animationCmd = ('ffmpeg', 
-                                '-y', # overwrite output file
-                                '-r', str(fps), # frame rate
-                                '-s', '{}x{}'.format(canvas_width, canvas_height), # size of image string
-                                '-pix_fmt', 'rgb24', # input format
-                                '-f', 'rawvideo',  '-i', '-', # tell ffmpeg to expect raw video from the pipe
-                                '-vcodec', 'h264', # output encoding
-                                '-pix_fmt' ,'yuv420p', # required for some media players
-                                '-vframes', str(len(range(0, nFrames, leapFactor))), # number of frames
-                                outfile) # file name
-                        animationProcess = subprocess.Popen(animationCmd, stdin=subprocess.PIPE)
-                    
-                    imgString = fig.canvas.tostring_rgb() # extract the image as an RGB string
-                    if '.gif' in outfile:
-                        paletteProcess.stdin.write(imgString) # write frame to GIF palette
-                    animationProcess.stdin.write(imgString) # write frame to animation
+                if useFFMPEG:
+                    canvas_width, canvas_height = fig.canvas.get_width_height()
+                    imgString.append(fig.canvas.tostring_rgb()) # extract the image as an RGB string
                 else: # use imagemagick: save frames temporarily 
                     file = filename(tmpdir, frame)
                     print('Saving frame {}/{} as "{}"'.format(frame+1, nFrames, file))
                     plt.savefig(file, facecolor=plt.gcf().get_facecolor())
                 plt.close()
-            if useffmpeg:
+            if useFFMPEG:
                 if '.gif' in outfile:
+                    paletteCmd = ('ffmpeg', 
+                        '-s', '{}x{}'.format(canvas_width, canvas_height), 
+                        '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-i', '-', 
+                        '-filter_complex', 'palettegen=stats_mode=diff', '-y', 'palette.png')
+                    paletteProcess = subprocess.Popen(paletteCmd, stdin=subprocess.PIPE)
+                    for frame in range(len(imgString)):
+                        paletteProcess.stdin.write(imgString[frame]) # write frame to GIF palette
                     paletteProcess.communicate() # Create palette
+                    animationCmd = ('ffmpeg', 
+                        '-y', # overwrite output file
+                        '-r', str(fps), # frame rate
+                        '-s', '{}x{}'.format(canvas_width, canvas_height), # size of image string
+                        '-pix_fmt', 'rgb24', # format
+                        '-f', 'rawvideo',  '-i', '-', # tell ffmpeg to expect raw video from the pipe
+                        '-i', 'palette.png', '-filter_complex', 'paletteuse',
+                        '-vframes', str(len(range(0, nFrames, leapFactor))), # number of frames
+                        outfile) # file name
+                elif '.mp4' in outfile:
+                    animationCmd = ('ffmpeg', 
+                        '-y', # overwrite output file
+                        '-r', str(fps), # frame rate
+                        '-s', '{}x{}'.format(canvas_width, canvas_height), # size of image string
+                        '-pix_fmt', 'rgb24', # input format
+                        '-f', 'rawvideo',  '-i', '-', # tell ffmpeg to expect raw video from the pipe
+                        '-vcodec', 'h264', # output encoding
+                        '-pix_fmt' ,'yuv420p', # required for some media players
+                        '-vframes', str(len(range(0, nFrames, leapFactor))), # number of frames
+                        outfile) # file name
+                animationProcess = subprocess.Popen(animationCmd, stdin=subprocess.PIPE)                    
+                for frame in range(len(imgString)):
+                    animationProcess.stdin.write(imgString[frame]) # write frame to animation
                 animationProcess.communicate() # Create animation
             else: # use imagemagick
                 print('Creating animated gif "{}"'.format(outfile))
