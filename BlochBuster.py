@@ -19,14 +19,12 @@ from mpl_toolkits.mplot3d import proj3d
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-# import matplotlib.animation as animation
 from matplotlib.patches import Circle
 from matplotlib.patches import FancyArrowPatch
 import numpy as np
 import scipy.integrate as integrate
 import os.path
 import shutil
-import csv
 import optparse
 import yaml
 import subprocess
