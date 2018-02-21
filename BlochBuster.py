@@ -27,7 +27,7 @@ import os.path
 import shutil
 import optparse
 import yaml
-import subprocess
+import FFMPEGwriter
 
 colors = {  'bg': [1,1,1], 
             'circle': [0,0,0,.03],
@@ -348,7 +348,7 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False, useFFMPEG = Tru
             os.makedirs(outdir, exist_ok=True)
             outfile = os.path.join(outdir, outfile)
             if useFFMPEG:
-                imgString = []
+                ffmpegWriter = FFMPEGwriter.FFMPEGwriter(fps)
             else:
                 os.makedirs(tmpdir, exist_ok=True)
             names = [comp['name'] for comp in config['components']]
@@ -360,47 +360,14 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False, useFFMPEG = Tru
                     fig = plotFrameMT(names, comps, config['title'], clock, frame, plotType)
                 plt.draw()
                 if useFFMPEG:
-                    canvas_width, canvas_height = fig.canvas.get_width_height()
-                    imgString.append(fig.canvas.tostring_rgb()) # extract the image as an RGB string
+                    ffmpegWriter.addFrame(fig)
                 else: # use imagemagick: save frames temporarily 
                     file = filename(tmpdir, frame)
                     print('Saving frame {}/{} as "{}"'.format(frame+1, nFrames, file))
                     plt.savefig(file, facecolor=plt.gcf().get_facecolor())
                 plt.close()
             if useFFMPEG:
-                if '.gif' in outfile:
-                    paletteCmd = ('ffmpeg', 
-                        '-s', '{}x{}'.format(canvas_width, canvas_height), 
-                        '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-i', '-', 
-                        '-filter_complex', 'palettegen=stats_mode=diff', '-y', 'palette.png')
-                    paletteProcess = subprocess.Popen(paletteCmd, stdin=subprocess.PIPE)
-                    for frame in range(len(imgString)):
-                        paletteProcess.stdin.write(imgString[frame]) # write frame to GIF palette
-                    paletteProcess.communicate() # Create palette
-                    animationCmd = ('ffmpeg', 
-                        '-y', # overwrite output file
-                        '-r', str(fps), # frame rate
-                        '-s', '{}x{}'.format(canvas_width, canvas_height), # size of image string
-                        '-pix_fmt', 'rgb24', # format
-                        '-f', 'rawvideo',  '-i', '-', # tell ffmpeg to expect raw video from the pipe
-                        '-i', 'palette.png', '-filter_complex', 'paletteuse',
-                        '-vframes', str(len(range(0, nFrames, leapFactor))), # number of frames
-                        outfile) # file name
-                elif '.mp4' in outfile:
-                    animationCmd = ('ffmpeg', 
-                        '-y', # overwrite output file
-                        '-r', str(fps), # frame rate
-                        '-s', '{}x{}'.format(canvas_width, canvas_height), # size of image string
-                        '-pix_fmt', 'rgb24', # input format
-                        '-f', 'rawvideo',  '-i', '-', # tell ffmpeg to expect raw video from the pipe
-                        '-vcodec', 'h264', # output encoding
-                        '-pix_fmt' ,'yuv420p', # required for some media players
-                        '-vframes', str(len(range(0, nFrames, leapFactor))), # number of frames
-                        outfile) # file name
-                animationProcess = subprocess.Popen(animationCmd, stdin=subprocess.PIPE)                    
-                for frame in range(len(imgString)):
-                    animationProcess.stdin.write(imgString[frame]) # write frame to animation
-                animationProcess.communicate() # Create animation
+                ffmpegWriter.write(outfile)
             else: # use imagemagick
                 print('Creating animated gif "{}"'.format(outfile))
                 compress = '-layers Optimize'
