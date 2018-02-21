@@ -82,19 +82,22 @@ def plotFrame3D(names, comps, title, clock, frame, spoilTextAlpha, RFTextAlpha, 
 
     # Draw magnetization vectors
     nVecs = len(comps[0])
+    order = [int((nVecs-1)/2-abs(m-(nVecs-1)/2)) for m in range(nVecs)]
     for c in range(len(comps)):
         for m in range(nVecs):
             col = colors['comps'][(c) % len(colors['comps'])]
-            M = comps[c][m]
+            M = comps[c][m][:,frame]
+            Mnorm = np.linalg.norm(M)
             alpha = 1.-2*np.abs((m+.5)/nVecs-.5)
-            order = int((nVecs-1)/2-abs(m-(nVecs-1)/2))
             if m == nVecs//2:  # Just for getting labels
                 ax.plot([0, 0], [0, 0], [0, 0], '-', lw=2, color=col, alpha=1.,
                         label=names[c])
-            ax.add_artist(Arrow3D([0, M[0, frame]], [0, M[1, frame]],
-                                  [0, M[2, frame]], mutation_scale=20,
-                                  arrowstyle="-|>", lw=2,
-                                  color=col, alpha=alpha, zorder=order))
+            if Mnorm>.05:
+                ax.add_artist(Arrow3D([0, M[0]], [0, M[1]],
+                                    [0, M[2]], mutation_scale=20,
+                                    arrowstyle="-|>", lw=2,
+                                    color=col, alpha=alpha, 
+                                    zorder=order[m]+nVecs*int(100*(1-Mnorm))))
 
     # Draw "spoiler" and "FA-pulse" text
     ax.text(.7, .7, .8, 'spoiler', fontsize=14, alpha=spoilTextAlpha[frame],
