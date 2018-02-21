@@ -16,6 +16,8 @@
 
 import mpl_toolkits.mplot3d.art3d as art3d
 from mpl_toolkits.mplot3d import proj3d
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 # import matplotlib.animation as animation
 from matplotlib.patches import Circle
@@ -27,6 +29,7 @@ import shutil
 import csv
 import optparse
 import yaml
+import subprocess
 
 colors = {  'bg': [1,1,1], 
             'circle': [0,0,0,.03],
@@ -111,6 +114,8 @@ def plotFrame3D(names, comps, title, clock, frame, spoilTextAlpha, RFTextAlpha, 
     leg.draw_frame(False)
     for text in leg.get_texts():
         text.set_color(colors['text'])
+    
+    return fig
 
 
 # Creates an animated plot of magnetization over time plotType='xy' for transversal and 'z' for longitudinal
@@ -175,6 +180,8 @@ def plotFrameMT(names, comps, title, clock, frame, plotType):
             for m in range(nVecs):
                 Mz += comps[c][m][2, :frame+1]
             ax.plot(clock[:frame+1], Mz/nVecs, '-', lw=2, color=col, label=names[c])
+
+    return fig
 
 
 def radians(degrees): return degrees*np.pi/180
@@ -290,7 +297,7 @@ def filename(dir, frame): return dir + '/' + format(frame+1, '04') + '.png'
 
 
 # Main program
-def BlochBuster(configFile, leapFactor=1, blackBackground=False):
+def BlochBuster(configFile, leapFactor=1, blackBackground=False, useffmpeg = True):
     if blackBackground:
         for i in ['bg', 'axis', 'text', 'circle']:
             colors[i][:3] = list(map(lambda x: 1-x, colors[i][:3]))
@@ -337,25 +344,67 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False):
             raise Exception('No files written.')
     for (plotType, outfile) in [('3D', config['outFile3D']), ('xy', config['outFileMxy']), ('z', config['outFileMz'])]:
         if outfile:
-            os.mkdir(tmpdir)
+            os.makedirs(outdir, exist_ok=True)
+            outfile = os.path.join(outdir, outfile)
+            if not useffmpeg:
+                os.makedirs(tmpdir, exist_ok=True)
             names = [comp['name'] for comp in config['components']]
             for frame in range(0, nFrames, leapFactor):
                 # Use only every leapFactor frame in animation
                 if plotType == '3D':
-                    plotFrame3D(names, comps, config['title'], clock, frame, spoilTextAlpha, RFTextAlpha, RFText)
+                    fig = plotFrame3D(names, comps, config['title'], clock, frame, spoilTextAlpha, RFTextAlpha, RFText)
                 else:
-                    plotFrameMT(names, comps, config['title'], clock, frame, plotType)
-                file = filename(tmpdir, frame)
-                print('Saving frame {}/{} as "{}"'.format(frame+1, nFrames, file))
-                plt.savefig(file, facecolor=plt.gcf().get_facecolor())
+                    fig = plotFrameMT(names, comps, config['title'], clock, frame, plotType)
+                plt.draw()
+                if useffmpeg:
+                    if frame == 0:
+                        canvas_width, canvas_height = fig.canvas.get_width_height()
+                        if '.gif' in outfile:
+                            paletteCmd = ('ffmpeg', 
+                                '-s', '{}x{}'.format(canvas_width, canvas_height), 
+                                '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-i', '-', 
+                                '-filter_complex', 'palettegen=stats_mode=diff', '-y', 'palette.png')
+                            paletteProcess = subprocess.Popen(paletteCmd, stdin=subprocess.PIPE)
+                            animationCmd = ('ffmpeg', 
+                                '-y', # overwrite output file
+                                '-r', str(fps), # frame rate
+                                '-s', '{}x{}'.format(canvas_width, canvas_height), # size of image string
+                                '-pix_fmt', 'rgb24', # format
+                                '-f', 'rawvideo',  '-i', '-', # tell ffmpeg to expect raw video from the pipe
+                                '-i', 'palette.png', '-filter_complex', 'paletteuse',
+                                '-vframes', str(len(range(0, nFrames, leapFactor))), # number of frames
+                                outfile) # file name
+                        elif '.mp4' in outfile:
+                            animationCmd = ('ffmpeg', 
+                                '-y', # overwrite output file
+                                '-r', str(fps), # frame rate
+                                '-s', '{}x{}'.format(canvas_width, canvas_height), # size of image string
+                                '-pix_fmt', 'rgb24', # input format
+                                '-f', 'rawvideo',  '-i', '-', # tell ffmpeg to expect raw video from the pipe
+                                '-vcodec', 'h264', # output encoding
+                                '-pix_fmt' ,'yuv420p', # required for some media players
+                                '-vframes', str(len(range(0, nFrames, leapFactor))), # number of frames
+                                outfile) # file name
+                        animationProcess = subprocess.Popen(animationCmd, stdin=subprocess.PIPE)
+                    
+                    imgString = fig.canvas.tostring_rgb() # extract the image as an RGB string
+                    if '.gif' in outfile:
+                        paletteProcess.stdin.write(imgString) # write frame to GIF palette
+                    animationProcess.stdin.write(imgString) # write frame to animation
+                else: # use imagemagick: save frames temporarily 
+                    file = filename(tmpdir, frame)
+                    print('Saving frame {}/{} as "{}"'.format(frame+1, nFrames, file))
+                    plt.savefig(file, facecolor=plt.gcf().get_facecolor())
                 plt.close()
-            if not os.path.isdir(outdir):
-                os.mkdir(outdir)
-            outfile = './out/'+outfile
-            print('Creating animated gif "{}"'.format(outfile))
-            compress = '-layers Optimize'
-            os.system(('convert {} -delay {} {}/*png {}'.format(compress, delay, tmpdir, outfile)))
-            shutil.rmtree(tmpdir)
+            if useffmpeg:
+                if '.gif' in outfile:
+                    paletteProcess.communicate() # Create palette
+                animationProcess.communicate() # Create animation
+            else: # use imagemagick
+                print('Creating animated gif "{}"'.format(outfile))
+                compress = '-layers Optimize'
+                os.system(('convert {} -delay {} {}/*png {}'.format(compress, delay, tmpdir, outfile)))
+                shutil.rmtree(tmpdir)
 
 
 # Command line parser
