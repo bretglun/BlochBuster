@@ -20,12 +20,10 @@ B0: 1.5
 B1: 5.0 
 components:
   - name: "water"
-    Meq: 1.0
     CS: 0.0
     T1: 1.0e+9
     T2: 1.0e+9
   - name: "fat"
-    Meq: 1.0
     CS: -3.40389262
     T1: 1.0e+9
     T2: 1.0e+9

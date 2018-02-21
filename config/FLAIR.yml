@@ -12,17 +12,14 @@ B0: 1.5
 B1: 100
 components:
   - name: "CSF"
-    Meq: 1.0
     CS: 0.0
     T1: 2400
     T2: 160
   - name: "WM"
-    Meq: 1.0
     CS: 0.0
     T1: 790
     T2: 92
   - name: "GM"
-    Meq: 1.0
     CS: 0.0
     T1: 920
     T2: 101

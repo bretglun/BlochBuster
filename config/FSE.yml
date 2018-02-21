@@ -16,7 +16,6 @@ B0: 1.5
 B1: 100
 components:
   - name: ""
-    Meq: 1.0
     CS: 0.0
     T1: 1.0e+9
     T2: 100
