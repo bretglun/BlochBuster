@@ -55,12 +55,17 @@ class Arrow3D(FancyArrowPatch):
 
 
 # Creates an animated plot of magnetization in a 3D view
-def plotFrame3D(names, comps, title, clock, frame, spoilTextAlpha, RFTextAlpha, RFText):
+def plotFrame3D(names, locs, title, clock, frame, spoilTextAlpha, RFTextAlpha, RFText):
+    nx, ny = locs.shape
+    
+    scale = 2.0
+
     # Create 3D axes
     fig = plt.figure(figsize=(5, 4.7))
-    ax = fig.gca(projection='3d', xlim=(-1, 1), ylim=(-1, 1), zlim=(-1, 1), fc=colors['bg'])
+    ax = fig.gca(projection='3d', xlim=(-scale, scale), ylim=(-scale, scale), zlim=(-scale, scale), fc=colors['bg'])
     ax.set_axis_off()
     ax.set_position([-0.26, -0.39, 1.6, 1.58])
+    ax.view_init(azim=-45)
 
     # Draw axes circles
     for i in ["x", "y", "z"]:
@@ -82,23 +87,27 @@ def plotFrame3D(names, comps, title, clock, frame, spoilTextAlpha, RFTextAlpha, 
     time_text = ax.text(-1, -.8, -1, 'time = %.1f msec' % (clock[frame]), color=colors['text'])
 
     # Draw magnetization vectors
-    nVecs = len(comps[0])
-    order = [int((nVecs-1)/2-abs(m-(nVecs-1)/2)) for m in range(nVecs)]
-    for c in range(len(comps)):
-        for m in range(nVecs):
-            col = colors['comps'][(c) % len(colors['comps'])]
-            M = comps[c][m][:,frame]
-            Mnorm = np.linalg.norm(M)
-            alpha = 1.-2*np.abs((m+.5)/nVecs-.5)
-            if m == nVecs//2:  # Just for getting labels
-                ax.plot([0, 0], [0, 0], [0, 0], '-', lw=2, color=col, alpha=1.,
-                        label=names[c])
-            if Mnorm>.05:
-                ax.add_artist(Arrow3D([0, M[0]], [0, M[1]],
-                                    [0, M[2]], mutation_scale=20,
-                                    arrowstyle="-|>", lw=2,
-                                    color=col, alpha=alpha, 
-                                    zorder=order[m]+nVecs*int(100*(1-Mnorm))))
+    for y in range(ny):
+        for x in range(nx):
+            comps = locs[x,y]
+            nVecs = len(comps[0])
+            order = [int((nVecs-1)/2-abs(m-(nVecs-1)/2)) for m in range(nVecs)]
+            for c in range(len(comps)):
+                for m in range(nVecs):
+                    col = colors['comps'][(c) % len(colors['comps'])]
+                    M = comps[c][m][:,frame]
+                    Mnorm = np.linalg.norm(M)
+                    alpha = 1.-2*np.abs((m+.5)/nVecs-.5)
+                    if m == nVecs//2:  # Just for getting labels
+                        ax.plot([0, 0], [0, 0], [0, 0], '-', lw=2, color=col, alpha=1.,
+                                label=names[c])
+                        # TODO: fix legend for multiple locations
+                    if Mnorm>.05:
+                        ax.add_artist(Arrow3D([x, x+M[0]], [-y, -y+M[1]],
+                                            [0, M[2]], mutation_scale=20,
+                                            arrowstyle="-|>", lw=2,
+                                            color=col, alpha=alpha, 
+                                            zorder=order[m]+nVecs*int(100*(1-Mnorm))))
 
     # Draw "spoiler" and "FA-pulse" text
     ax.text(.7, .7, .8, 'spoiler', fontsize=14, alpha=spoilTextAlpha[frame],
@@ -120,7 +129,7 @@ def plotFrame3D(names, comps, title, clock, frame, spoilTextAlpha, RFTextAlpha, 
 
 
 # Creates an animated plot of magnetization over time plotType='xy' for transversal and 'z' for longitudinal
-def plotFrameMT(names, comps, title, clock, frame, plotType):
+def plotFrameMT(names, locs, title, clock, frame, plotType):
     if plotType not in ['xy', 'z']:
         raise Exception(
              'plotType must be xy (for transversal) or z (for longitudinal)')
@@ -160,6 +169,7 @@ def plotFrameMT(names, comps, title, clock, frame, plotType):
     ax.arrow(xmin, 0, (xmax-xmin)*1.05, 0, fc=colors['text'], ec=colors['text'], lw=1, head_width=hw, head_length=hl, clip_on=False, zorder=100)
     ax.arrow(0, ymin, 0, (ymax-ymin)*1.05, fc=colors['text'], ec=colors['text'], lw=1, head_width=yhw, head_length=yhl, clip_on=False, zorder=100)
     # Draw magnetization vectors
+    comps = locs[0,0] #TODO: sum magnetization from all locations
     nVecs = len(comps[0])
     if plotType == 'xy':
         Msum = np.zeros([2, frame+1])
@@ -325,15 +335,39 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False, useFFMPEG = Tru
         config['B1'] = 1/(gyro*dt*72)  # Set duration of a 360-pulse to 72 frames
     w0 = 2*np.pi*gyro*config['B0']  # Larmor frequency [kRad]
     w1 = 2*np.pi*gyro*config['B1']  # B1 rotation frequency [kRad]
+    # Arrange locations
+    if not 'locations' in config:
+        config['locations'] = [[1]]
+        nx = ny = 1
+    else:
+        if isinstance(config['locations'], dict):
+            rows = next(iter(config['locations'].values()))
+        elif isinstance(config['locations'], list):
+            rows = config['locations']
+        else:
+            raise Exception('Did not expect {} in config "locations"'.format(type(config['locations'])))
+        if not isinstance(rows[0], list):
+            raise Exception('Config "locations" should be a list of lists, such as [[1, 1]]')
+        ny = len(rows)
+        nx = len(rows[0])
     # Simulate
-    comps = []
-    for component in config['components']:
-        Meq = 1.0
-        comps.append(simulateComponent(component, Meq, w0, config['nIsochromats'], config['isochromatStep'], config['pulseSeq'], config['TR'], w1, config['nTR'], dt, instantRF))
+    locs = np.empty((nx,ny), dtype=list)
+    for y in range(ny):
+        for x in range(nx):
+            comps = []
+            for c, component in enumerate(config['components']):
+                if component['name'] in config['locations']:
+                    Meq = config['locations'][component['name']][y][x]
+                elif isinstance(config['locations'], list):
+                    Meq = config['locations'][y][x]
+                else:
+                    continue
+                comps.append(simulateComponent(component, Meq, w0, config['nIsochromats'], config['isochromatStep'], config['pulseSeq'], config['TR'], w1, config['nTR'], dt, instantRF))
+            locs[x,y] = comps
     # Animate
     clock, spoilTextAlpha, RFTextAlpha, RFText = getClockSpoilAndRFText(config['pulseSeq'], config['TR'], config['nTR'], w1, dt, instantRF)
     delay = int(100/fps*leapFactor)  # Delay between frames in ticks of 1/100 sec
-    nFrames = len(comps[0][0][0])
+    nFrames = len(locs[0,0][0][0][0])
     if not config['outFile3D']+config['outFileMxy']+config['outFileMz']:
         raise Exception('No outfile (outFile3D/outFileMxy/outFileMz) was found in config')
     tmpdir = './tmp'
@@ -356,9 +390,9 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False, useFFMPEG = Tru
             for frame in range(0, nFrames, leapFactor):
                 # Use only every leapFactor frame in animation
                 if plotType == '3D':
-                    fig = plotFrame3D(names, comps, config['title'], clock, frame, spoilTextAlpha, RFTextAlpha, RFText)
+                    fig = plotFrame3D(names, locs, config['title'], clock, frame, spoilTextAlpha, RFTextAlpha, RFText)
                 else:
-                    fig = plotFrameMT(names, comps, config['title'], clock, frame, plotType)
+                    fig = plotFrameMT(names, locs, config['title'], clock, frame, plotType)
                 plt.draw()
                 if useFFMPEG:
                     ffmpegWriter.addFrame(fig)
