@@ -65,21 +65,22 @@ def plotFrame3D(names, locs, title, clock, frame, spoilTextAlpha, RFTextAlpha, R
     ax = fig.gca(projection='3d', xlim=(-scale, scale), ylim=(-scale, scale), zlim=(-scale, scale), fc=colors['bg'])
     ax.set_axis_off()
     ax.set_position([-0.26, -0.39, 1.6, 1.58])
-    ax.view_init(azim=-45)
+    #ax.view_init(azim=-45)
 
-    # Draw axes circles
-    for i in ["x", "y", "z"]:
-        circle = Circle((0, 0), 1, fill=True, lw=1, fc=colors['circle'])
-        ax.add_patch(circle)
-        art3d.pathpatch_2d_to_3d(circle, z=0, zdir=i)
+    if nx*ny == 1:
+        # Draw axes circles
+        for i in ["x", "y", "z"]:
+            circle = Circle((0, 0), 1, fill=True, lw=1, fc=colors['circle'])
+            ax.add_patch(circle)
+            art3d.pathpatch_2d_to_3d(circle, z=0, zdir=i)
 
-    # Draw x, y, and z axes
-    ax.plot([-1, 1], [0, 0], [0, 0], c=colors['axis'], zorder=-1)  # x-axis
-    ax.text(1.1, 0, 0, r'$x^\prime$', horizontalalignment='center', color=colors['text'])
-    ax.plot([0, 0], [-1, 1], [0, 0], c=colors['axis'], zorder=-1)  # y-axis
-    ax.text(0, 1.2, 0, r'$y^\prime$', horizontalalignment='center', color=colors['text'])
-    ax.plot([0, 0], [0, 0], [-1, 1], c=colors['axis'], zorder=-1)  # z-axis
-    ax.text(0, 0, 1.1, r'$z$', horizontalalignment='center', color=colors['text'])
+        # Draw x, y, and z axes
+        ax.plot([-1, 1], [0, 0], [0, 0], c=colors['axis'], zorder=-1)  # x-axis
+        ax.text(1.1, 0, 0, r'$x^\prime$', horizontalalignment='center', color=colors['text'])
+        ax.plot([0, 0], [-1, 1], [0, 0], c=colors['axis'], zorder=-1)  # y-axis
+        ax.text(0, 1.2, 0, r'$y^\prime$', horizontalalignment='center', color=colors['text'])
+        ax.plot([0, 0], [0, 0], [-1, 1], c=colors['axis'], zorder=-1)  # z-axis
+        ax.text(0, 0, 1.1, r'$z$', horizontalalignment='center', color=colors['text'])
 
     # Draw title:
     ax.text(0, 0, 1.4, title, fontsize=14, horizontalalignment='center', color=colors['text'])
