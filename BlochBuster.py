@@ -221,30 +221,30 @@ def applyPulseSeq(Meq, w, T1, T2, pulseSeq, TR, w1, nTR=1, dt=0.1, instantRF=Fal
     # Initial state is equilibrium magnetization
     M = np.array([[0.], [0.], [Meq]])
     for rep in range(nTR):
-        # Initial relaxation up to first pulse
+        # Initial relaxation up to first event
         t = np.arange(0, pulseSeq[0]['t']+dt, dt)
         M1 = integrate.odeint(derivs, M[:, -1], t, args=(Meq, w, 0., T1, T2))
         M = np.concatenate((M, M1[1:].transpose()), axis=1)
-        for p, pulse in enumerate(pulseSeq):
-            if pulse['FA']==0: # Interpreted as spoiling
+        for p, event in enumerate(pulseSeq):
+            if event['FA']==0: # Interpreted as spoiling
                 dur = 0
                 M[:, -1] = spoil(M[:, -1])
             else: # Apply RF-pulse:
-                dur = radians(abs(pulse['FA']))/w1  # RF pulse duration
+                dur = radians(abs(event['FA']))/w1  # RF pulse duration
                 t = np.arange(0, dur+dt, dt)
-                w1_adj = radians(pulse['FA'])/((len(t)-1)*dt)  # adjust w1 to fit FA to integer number of frames
+                w1_adj = radians(event['FA'])/((len(t)-1)*dt)  # adjust w1 to fit FA to integer number of frames
                 if instantRF:
                     dur = 0
                     M1 = integrate.odeint(derivs, M[:, -1], t, args=(Meq, 0., w1_adj, np.inf, np.inf))
                 else:
                     M1 = integrate.odeint(derivs, M[:, -1], t, args=(Meq, w, w1_adj, T1, T2))
                 M = np.concatenate((M, M1[1:].transpose()), axis=1)
-            # Then relaxation until next pulse or end of TR
-            if pulse is not pulseSeq[-1]:
+            # Then relaxation until next event or end of TR
+            if event is not pulseSeq[-1]:
                 t_next = min(TR, pulseSeq[p+1]['t'])
             else:
                 t_next = TR
-            T = t_next-pulse['t']-dur
+            T = t_next-event['t']-dur
             if T>0:
                 t = np.arange(0, T+dt, dt)
                 M1 = integrate.odeint(derivs, M[:, -1], t, args=(Meq, w, 0., T1, T2))
