@@ -217,7 +217,7 @@ def derivs(M, t, Meq, w, w1, T1, T2):  # Bloch equations in rotating frame
 
 
 # Simulate magnetization vector during nTR applications of pulseSeq
-def applyPulseSeq(Meq, w, T1, T2, pulseSeq, TR, w1, nTR=1, dt=0.1, instantRF=False):
+def applyPulseSeq(Meq, w, T1, T2, pulseSeq, TR, w1, nTR=1, dt=0.1, instantRF=False, xpos=0, ypos=0):
     # Initial state is equilibrium magnetization
     M = np.array([[0.], [0.], [Meq]])
     for rep in range(nTR):
@@ -253,13 +253,13 @@ def applyPulseSeq(Meq, w, T1, T2, pulseSeq, TR, w1, nTR=1, dt=0.1, instantRF=Fal
 
 
 # Simulate Nisochromats dephasing magnetization vectors per component
-def simulateComponent(component, Meq, w0, Nisochromats, isochromatStep, pulseSeq, TR, w1, nTR=1, dt=0.1, instantRF=False):
+def simulateComponent(component, Meq, w0, Nisochromats, isochromatStep, pulseSeq, TR, w1, nTR=1, dt=0.1, instantRF=False, xpos=0, ypos=0):
     # Shifts in ppm for dephasing vectors:
     isochromats = [(2*i+1-Nisochromats)/2*isochromatStep+component['CS'] for i in range(0, Nisochromats)]
     comp = []
     for isochromat in isochromats:
         w = w0*isochromat*.000001  # Demodulated frequency [krad]
-        comp.append(applyPulseSeq(Meq, w, component['T1'], component['T2'], pulseSeq, TR, w1, nTR, dt, instantRF))
+        comp.append(applyPulseSeq(Meq, w, component['T1'], component['T2'], pulseSeq, TR, w1, nTR, dt, instantRF, xpos, ypos))
     return comp
 
 
@@ -365,7 +365,9 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False, useFFMPEG = Tru
                     Meq = config['locations'][y][x]
                 else:
                     continue
-                comps.append(simulateComponent(component, Meq, w0, config['nIsochromats'], config['isochromatStep'], config['pulseSeq'], config['TR'], w1, config['nTR'], dt, instantRF))
+                xpos = x-nx/2
+                ypos = y-ny/2
+                comps.append(simulateComponent(component, Meq, w0, config['nIsochromats'], config['isochromatStep'], config['pulseSeq'], config['TR'], w1, config['nTR'], dt, instantRF, xpos, ypos))
             locs[x,y] = comps
     # Animate
     clock, spoilTextAlpha, RFTextAlpha, RFText = getClockSpoilAndRFText(config['pulseSeq'], config['TR'], config['nTR'], w1, dt, instantRF)
