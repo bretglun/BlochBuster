@@ -59,6 +59,8 @@ def plotFrame3D(names, locs, title, clock, frame, spoilTextAlpha, RFTextAlpha, R
     nx, ny = locs.shape
     
     scale = 2.0
+    xpos = np.arange(nx)-nx/2
+    ypos = ny/2-np.arange(ny)
 
     # Create 3D axes
     fig = plt.figure(figsize=(5, 4.7))
@@ -104,7 +106,7 @@ def plotFrame3D(names, locs, title, clock, frame, spoilTextAlpha, RFTextAlpha, R
                                 label=names[c])
                         # TODO: fix legend for multiple locations
                     if Mnorm>.05:
-                        ax.add_artist(Arrow3D([x, x+M[0]], [-y, -y+M[1]],
+                        ax.add_artist(Arrow3D([xpos[x], xpos[x]+M[0]], [ypos[y], ypos[y]+M[1]],
                                             [0, M[2]], mutation_scale=20,
                                             arrowstyle="-|>", lw=2,
                                             color=col, alpha=alpha, 
