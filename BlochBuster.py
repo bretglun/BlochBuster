@@ -226,7 +226,19 @@ def applyPulseSeq(Meq, w, T1, T2, pulseSeq, TR, w1, nTR=1, dt=0.1, instantRF=Fal
         M1 = integrate.odeint(derivs, M[:, -1], t, args=(Meq, w, 0., T1, T2))
         M = np.concatenate((M, M1[1:].transpose()), axis=1)
         for p, event in enumerate(pulseSeq):
-            if event['FA']==0: # Interpreted as spoiling
+            if 'Gx' in event or 'Gy' in event: # Gradient
+                dur = event['dur'] # duration
+                t = np.arange(0, dur+dt, dt)
+                wg = w # Frequence during gradient
+                if 'Gx' in event:
+                    Gx = event['Gx']/dur*(len(t)-1)*dt # adjust Gx to compensate duration round-off
+                    wg += 2*np.pi*gyro*Gx/1000*(xpos*locSpacing) # [krad/s]
+                if 'Gy' in event:
+                    Gy = event['Gy']/dur*(len(t)-1)*dt # adjust Gy to compensate duration round-off
+                    wg += 2*np.pi*gyro*Gy/1000*(ypos*locSpacing) # [krad/s]
+                M1 = integrate.odeint(derivs, M[:, -1], t, args=(Meq, wg, 0., T1, T2))
+                M = np.concatenate((M, M1[1:].transpose()), axis=1)
+            elif event['FA']==0: # Interpreted as spoiling
                 dur = 0
                 M[:, -1] = spoil(M[:, -1])
             else: # Apply RF-pulse:
@@ -272,14 +284,21 @@ def getClockSpoilAndRFText(pulseSeq, TR, nTR, w1, dt, instantRF=False):
     RFTextAlpha = [0.]
     RFText = ['']
     for rep in range(nTR):
-        for p, pulse in enumerate(pulseSeq):
-            if pulse['FA']==0: # Interpreted as spoiling
+        for p, event in enumerate(pulseSeq):
+            if 'Gx' in event or 'Gy' in event: # Gradient
+                dur = event['dur']
+                t = np.arange(dt, dur+dt, dt)
+                clock.extend(t+clock[-1])
+                spoilTextAlpha.extend(np.linspace(spoilTextAlpha[-1], spoilTextAlpha[-1]-len(t)*decrPerFrame, num=len(t)))
+                RFTextAlpha.extend(np.linspace(RFTextAlpha[-1], RFTextAlpha[-1]-len(t)*decrPerFrame, num=len(t)))
+                RFText += [RF]*len(t)
+            elif 'FA' in event and event['FA']==0: # Interpreted as spoiling
                 dur = 0
                 spoilTextAlpha[-1] = 1.
-            else: # Frames during RF-pulse:
+            elif 'FA' in event: # Frames during RF-pulse:
                 # TODO: add info about the RF phase angle
-                RF = str(int(abs(pulse['FA'])))+u'\N{DEGREE SIGN}'+'-pulse'
-                dur = radians(abs(pulse['FA']))/w1  # RF pulse duration
+                RF = str(int(abs(event['FA'])))+u'\N{DEGREE SIGN}'+'-pulse'
+                dur = radians(abs(event['FA']))/w1  # RF pulse duration
                 t = np.arange(dt, dur+dt, dt)
                 if instantRF:
                     dur = 0
@@ -290,11 +309,11 @@ def getClockSpoilAndRFText(pulseSeq, TR, nTR, w1, dt, instantRF=False):
                 RFTextAlpha.extend(np.ones(len(t)))
                 RFText += [RF]*len(t)
             # Frames during relaxation
-            if pulse is not pulseSeq[-1]:
+            if event is not pulseSeq[-1]:
                 t_next = min(TR, pulseSeq[p+1]['t'])
             else:
                 t_next = TR
-            T = t_next-pulse['t']-dur
+            T = t_next-event['t']-dur
             if T>0:
                 t = np.arange(dt, T+dt, dt)
                 clock.extend(t+clock[-1])  # Increment clock during relaxation time T
@@ -312,6 +331,11 @@ def filename(dir, frame): return dir + '/' + format(frame+1, '04') + '.png'
 
 # Main program
 def BlochBuster(configFile, leapFactor=1, blackBackground=False, useFFMPEG = True):
+    # Set global constants
+    global gyro, locSpacing
+    gyro = 42577.			# Gyromagnetic ratio [kHz/T]
+    locSpacing = 0.001      # distance between locations [m]
+    
     if blackBackground:
         for i in ['bg', 'axis', 'text', 'circle']:
             colors[i][:3] = list(map(lambda x: 1-x, colors[i][:3]))
@@ -333,7 +357,6 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False, useFFMPEG = Tru
     # Calculations
     fps = 15.				# Frames per second in animation (<=15 should be supported by powepoint)
     dt = 1000./fps*config['speed'] 	# Time resolution [msec]
-    gyro = 42577.			# Gyromagnetic ratio [kHz/T]
     if instantRF:
         config['B1'] = 1/(gyro*dt*72)  # Set duration of a 360-pulse to 72 frames
     w0 = 2*np.pi*gyro*config['B0']  # Larmor frequency [kRad]
