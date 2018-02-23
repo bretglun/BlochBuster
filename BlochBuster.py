@@ -217,7 +217,7 @@ def derivs(M, t, Meq, w, w1, T1, T2):  # Bloch equations in rotating frame
 
 
 # Simulate magnetization vector during nTR applications of pulseSeq
-def applyPulseSeq(Meq, w, T1, T2, pulseSeq, TR, w1, nTR=1, dt=0.1, instantRF=False, xpos=0, ypos=0):
+def applyPulseSeq(Meq, w, T1, T2, pulseSeq, TR, nTR=1, dt=0.1, xpos=0, ypos=0):
     # Initial state is equilibrium magnetization
     M = np.array([[0.], [0.], [Meq]])
     for rep in range(nTR):
@@ -226,31 +226,29 @@ def applyPulseSeq(Meq, w, T1, T2, pulseSeq, TR, w1, nTR=1, dt=0.1, instantRF=Fal
         M1 = integrate.odeint(derivs, M[:, -1], t, args=(Meq, w, 0., T1, T2))
         M = np.concatenate((M, M1[1:].transpose()), axis=1)
         for p, event in enumerate(pulseSeq):
-            if 'Gx' in event or 'Gy' in event: # Gradient
-                dur = event['dur'] # duration
-                t = np.arange(0, dur+dt, dt)
-                wg = w # Frequence during gradient
-                if 'Gx' in event:
-                    Gx = event['Gx']/dur*(len(t)-1)*dt # adjust Gx to compensate duration round-off
-                    wg += 2*np.pi*gyro*Gx/1000*(xpos*locSpacing) # [krad/s]
-                if 'Gy' in event:
-                    Gy = event['Gy']/dur*(len(t)-1)*dt # adjust Gy to compensate duration round-off
-                    wg += 2*np.pi*gyro*Gy/1000*(ypos*locSpacing) # [krad/s]
-                M1 = integrate.odeint(derivs, M[:, -1], t, args=(Meq, wg, 0., T1, T2))
-                M = np.concatenate((M, M1[1:].transpose()), axis=1)
-            elif event['FA']==0: # Interpreted as spoiling
-                dur = 0
-                M[:, -1] = spoil(M[:, -1])
-            else: # Apply RF-pulse:
+            wg = w  # frequency due to w plus any gradients
+            if 'w1' in event:
+                w1 = event['w1']
+            else:
+                w1 = 0
+            dur = event['dur']
+            if dur==0 and 'FA' in event: # "fake duration" for "instant" RF-pulse
                 dur = radians(abs(event['FA']))/w1  # RF pulse duration
-                t = np.arange(0, dur+dt, dt)
-                w1_adj = radians(event['FA'])/((len(t)-1)*dt)  # adjust w1 to fit FA to integer number of frames
-                if instantRF:
-                    dur = 0
-                    M1 = integrate.odeint(derivs, M[:, -1], t, args=(Meq, 0., w1_adj, np.inf, np.inf))
-                else:
-                    M1 = integrate.odeint(derivs, M[:, -1], t, args=(Meq, w, w1_adj, T1, T2))
+            t = np.arange(0, dur+dt, dt)
+
+            if 'spoil' in event and event['spoil']: # Spoiler event
+                M[:, -1] = spoil(M[:, -1])
+            elif 'FA' in event and event['dur']==0: # "instant" RF-pulse event (incompatible with gradient)
+                M1 = integrate.odeint(derivs, M[:, -1], t, args=(Meq, 0., w1, np.inf, np.inf))
+            else: # RF-pulse and/or gradient event
+                if any(key in event for key in ['Gx', 'Gy']): # Gradient present
+                    if 'Gx' in event:
+                        wg += 2*np.pi*gyro*event['Gx']/1000*(xpos*locSpacing) # [krad/s]
+                    if 'Gy' in event:
+                        wg += 2*np.pi*gyro*event['Gy']/1000*(ypos*locSpacing) # [krad/s]
+                M1 = integrate.odeint(derivs, M[:, -1], t, args=(Meq, wg, w1, T1, T2))
                 M = np.concatenate((M, M1[1:].transpose()), axis=1)
+            
             # Then relaxation until next event or end of TR
             if event is not pulseSeq[-1]:
                 t_next = min(TR, pulseSeq[p+1]['t'])
@@ -265,19 +263,20 @@ def applyPulseSeq(Meq, w, T1, T2, pulseSeq, TR, w1, nTR=1, dt=0.1, instantRF=Fal
 
 
 # Simulate Nisochromats dephasing magnetization vectors per component
-def simulateComponent(component, Meq, w0, Nisochromats, isochromatStep, pulseSeq, TR, w1, nTR=1, dt=0.1, instantRF=False, xpos=0, ypos=0):
+def simulateComponent(component, Meq, w0, Nisochromats, isochromatStep, pulseSeq, TR, nTR=1, dt=0.1, xpos=0, ypos=0):
     # Shifts in ppm for dephasing vectors:
     isochromats = [(2*i+1-Nisochromats)/2*isochromatStep+component['CS'] for i in range(0, Nisochromats)]
     comp = []
     for isochromat in isochromats:
-        w = w0*isochromat*.000001  # Demodulated frequency [krad]
-        comp.append(applyPulseSeq(Meq, w, component['T1'], component['T2'], pulseSeq, TR, w1, nTR, dt, instantRF, xpos, ypos))
+        w = w0*isochromat*1e-6  # Demodulated frequency [krad]
+        comp.append(applyPulseSeq(Meq, w, component['T1'], component['T2'], pulseSeq, TR, nTR, dt, xpos, ypos))
     return comp
 
 
 # Get clock during nTR applications of pulseSeq (clock stands still during excitation)
 # Get opacity and text for spoiler and RF text flashes in 3D plot
-def getClockSpoilAndRFText(pulseSeq, TR, nTR, w1, dt, instantRF=False):
+def getClockSpoilAndRFText(pulseSeq, TR, nTR, dt):
+    # TODO: update with new pulseSeq format
     clock = [0.0]
     decrPerFrame = .1
     spoilTextAlpha = [0.]
@@ -285,35 +284,33 @@ def getClockSpoilAndRFText(pulseSeq, TR, nTR, w1, dt, instantRF=False):
     RFText = ['']
     for rep in range(nTR):
         for p, event in enumerate(pulseSeq):
-            if 'Gx' in event or 'Gy' in event: # Gradient
-                dur = event['dur']
-                t = np.arange(dt, dur+dt, dt)
-                clock.extend(t+clock[-1])
-                spoilTextAlpha.extend(np.linspace(spoilTextAlpha[-1], spoilTextAlpha[-1]-len(t)*decrPerFrame, num=len(t)))
-                RFTextAlpha.extend(np.linspace(RFTextAlpha[-1], RFTextAlpha[-1]-len(t)*decrPerFrame, num=len(t)))
-                RFText += [RF]*len(t)
-            elif 'FA' in event and event['FA']==0: # Interpreted as spoiling
-                dur = 0
+            dur = event['dur']
+            if 'spoil' in event and event['spoil']: # Spoiler event
                 spoilTextAlpha[-1] = 1.
-            elif 'FA' in event: # Frames during RF-pulse:
+            elif 'FA' in event: # RF-pulse and/or gradient event
                 # TODO: add info about the RF phase angle
                 RF = str(int(abs(event['FA'])))+u'\N{DEGREE SIGN}'+'-pulse'
-                dur = radians(abs(event['FA']))/w1  # RF pulse duration
-                t = np.arange(dt, dur+dt, dt)
-                if instantRF:
-                    dur = 0
+                t = np.arange(dt, event['dur']+dt, dt)
+                if event['dur']==0: # "instant" RF-pulse event
                     clock.extend(np.full(t.shape, clock[-1]))  # Clock stands still during instant RF pulse
                 else:
                     clock.extend(t+clock[-1])
                 spoilTextAlpha.extend(np.linspace(spoilTextAlpha[-1], spoilTextAlpha[-1]-len(t)*decrPerFrame, num=len(t)))
                 RFTextAlpha.extend(np.ones(len(t)))
                 RFText += [RF]*len(t)
+            else: # gradient only event
+                t = np.arange(dt, event['dur']+dt, dt)
+                clock.extend(t+clock[-1])
+                spoilTextAlpha.extend(np.linspace(spoilTextAlpha[-1], spoilTextAlpha[-1]-len(t)*decrPerFrame, num=len(t)))
+                RFTextAlpha.extend(np.linspace(RFTextAlpha[-1], RFTextAlpha[-1]-len(t)*decrPerFrame, num=len(t)))
+                RFText += [RF]*len(t)
+                
             # Frames during relaxation
             if event is not pulseSeq[-1]:
                 t_next = min(TR, pulseSeq[p+1]['t'])
             else:
                 t_next = TR
-            T = t_next-event['t']-dur
+            T = t_next-event['t']-event['dur']
             if T>0:
                 t = np.arange(dt, T+dt, dt)
                 clock.extend(t+clock[-1])  # Increment clock during relaxation time T
@@ -329,12 +326,84 @@ def getClockSpoilAndRFText(pulseSeq, TR, nTR, w1, dt, instantRF=False):
 def filename(dir, frame): return dir + '/' + format(frame+1, '04') + '.png'
 
 
+def checkPulseSeq(config):
+    allowedKeys = ['t', 'spoil', 'dur', 'FA', 'B1', 'phase', 'Gx', 'Gy']
+    for event in config['pulseSeq']:
+        for item in event.keys(): # allowed keys
+            if item not in allowedKeys:
+                raise Exception('PulseSeq key "{}" not supported'.format(item))
+        if not 't' in event:
+            raise Exception('All pulseSeq events must have an event time "t"')    
+
+    # Sort pulseSeq according to event time
+    config['pulseSeq'] = sorted(config['pulseSeq'], key=lambda event: event['t'])
+    
+    t = np.array([0.0])
+    for event in config['pulseSeq']:
+        T = np.round(event['t']/dt)*dt-t[-1] # time up to event
+        if T<0:
+            raise Exception('Pulse sequence events overlap')
+        t = np.append(t[:-1], t[-1]+np.linspace(0, T, np.round(T/dt)+1, endpoint=True))
+        event['frame'] = len(t)-1 # starting frame of event TODO: can be removed?
+            
+        if 'spoil' in event: # Spoiler event
+            if any(key in event for key in ['dur', 'FA', 'B1', 'phase', 'Gx', 'Gy']):
+                raise Exception('Spoiler event should only have event time t and spoil: true')
+            event['dur'] = 0
+            event['nFrames'] = 0
+
+        if 'FA' in event or 'B1' in event: # RF-pulse (possibly with gradient)
+            if all(key in event for key in ['FA', 'B1', 'dur']):
+                raise Exception('RF-pulse over-determined. Provide only two out of "FA", "B1", and "dur"')
+            if 'B1' not in event and 'dur' not in event:
+                if 'B1' in config:
+                    event['B1'] = config['B1'] # use "global" B1
+                else:
+                    event['B1'] = 'inf' # "instant" RF-pulse            
+            if 'B1' in event: 
+                if event['B1'] == 'inf': # handle "instant" RF pulse, specified by B1: inf
+                    if 'dur' in event:
+                        raise Exception('Cannot combine given dur with "infinite" B1 pulse')
+                    event['dur'] = 0
+            if 'dur' not in event:
+                event['dur'] = abs(event['FA'])/(360*gyro*event['B1']*1e-6) # RF pulse duration
+            if 'FA' not in event:
+                event['FA'] = 360*(event['dur']*gyro*event['B1']*1e-6) # calculate prescribed FA
+            if event['dur']>0:
+                event['nFrames'] = max(np.round(event['dur']/dt), 1)
+            else:
+                event['nFrames'] = np.round(abs(event['FA'])*18/90) # 18 frames per 90 flip TODO: use fps
+            if 'phase' in event: # Set complex flip angles
+                event['FA'] = event['FA']*np.exp(1j*radians(event['phase']))
+            event['w1'] = radians(event['FA'])/(event['nFrames']*dt)
+
+        if 'Gx' in event or 'Gy' in event: # Gradient (no RF)
+            if not ('dur' in event and event['dur']>0):
+                raise Exception('Gradient must have a specified duration>0 (dur [ms])')
+            if 'FA' not in event and 'phase' in event:
+                raise Exception('Gradient event should have no phase')
+            event['nFrames'] = max(np.round(event['dur']/dt), 1)
+            if 'Gx' in event:
+                Gx = event['Gx']*event['nFrames']*dt/event['dur'] # adjust Gx for truncation of duration
+            if 'Gy' in event:
+                Gy = event['Gy']*event['nFrames']*dt/event['dur'] # adjust Gy for truncation of duration
+            
+        if event['dur']>0:
+            event['dur'] = event['nFrames']*dt  # truncate duration to whole frames
+        t = np.append(t[:-1], t[-1]+np.linspace(0, event['dur'], event['nFrames']+1, endpoint=True))
+        
+    T = np.ceil(config['TR']/dt)*dt-t[-1] # time up to TR
+    if T<0:
+        raise Exception('Pulse sequence events not within TR')
+    t = np.append(t[:-1], t[-1]+np.linspace(0, T, np.round(T/dt)+1, endpoint=True))
+    print(t)
+    return t
+
+
 # Main program
 def BlochBuster(configFile, leapFactor=1, blackBackground=False, useFFMPEG = True):
     # Set global constants
-    global gyro, locSpacing
-    gyro = 42577.			# Gyromagnetic ratio [kHz/T]
-    locSpacing = 0.001      # distance between locations [m]
+    global gyro, dt, locSpacing
     
     if blackBackground:
         for i in ['bg', 'axis', 'text', 'circle']:
@@ -345,23 +414,19 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False, useFFMPEG = Tru
             config = yaml.load(f)
         except yaml.YAMLError as exc:
             print(exc)
-    # Assert pulses in pulseSeq are sorted according to time
-    config['pulseSeq'] = sorted(config['pulseSeq'], key=lambda pulse: pulse['t']) 
-    # Set complex flip angles
-    for pulse in config['pulseSeq']:
-        if 'phase' in pulse:
-            pulse['FA'] = pulse['FA']*np.exp(1j*radians(pulse['phase']))
-
-    instantRF = config['B1'] >= 100	# B1=100 means instant RF pulses
-    config['B1'] /= 1e6			# convert uT->T
-    # Calculations
+    
+    ### Calculations ###
+    gyro = 42577.			# Gyromagnetic ratio [kHz/T]
     fps = 15.				# Frames per second in animation (<=15 should be supported by powepoint)
-    dt = 1000./fps*config['speed'] 	# Time resolution [msec]
-    if instantRF:
-        config['B1'] = 1/(gyro*dt*72)  # Set duration of a 360-pulse to 72 frames
-    w0 = 2*np.pi*gyro*config['B0']  # Larmor frequency [kRad]
-    w1 = 2*np.pi*gyro*config['B1']  # B1 rotation frequency [kRad]
-    # Arrange locations
+    dt = 1e3/fps*config['speed'] 	# Time resolution [msec]
+    w0 = 2*np.pi*gyro*config['B0']  # Larmor frequency [kRad/s]
+    
+    ### Format pulseSeq correctly ###
+    checkPulseSeq(config)
+    print(config['pulseSeq'])
+    
+    ### Arrange locations ###
+    locSpacing = 0.001      # distance between locations [m]
     if not 'locations' in config:
         config['locations'] = [[1]]
         nx = ny = 1
@@ -376,7 +441,8 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False, useFFMPEG = Tru
             raise Exception('Config "locations" should be a list of lists, such as [[1, 1]]')
         ny = len(rows)
         nx = len(rows[0])
-    # Simulate
+
+    ### Simulate ###
     locs = np.empty((nx,ny), dtype=list)
     for y in range(ny):
         for x in range(nx):
@@ -388,12 +454,13 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False, useFFMPEG = Tru
                     Meq = config['locations'][y][x]
                 else:
                     continue
-                xpos = x-nx/2
-                ypos = y-ny/2
-                comps.append(simulateComponent(component, Meq, w0, config['nIsochromats'], config['isochromatStep'], config['pulseSeq'], config['TR'], w1, config['nTR'], dt, instantRF, xpos, ypos))
+                xpos = x+.5-nx/2
+                ypos = y+.5-ny/2
+                comps.append(simulateComponent(component, Meq, w0, config['nIsochromats'], config['isochromatStep'], config['pulseSeq'], config['TR'], config['nTR'], dt, xpos, ypos))
             locs[x,y] = comps
-    # Animate
-    clock, spoilTextAlpha, RFTextAlpha, RFText = getClockSpoilAndRFText(config['pulseSeq'], config['TR'], config['nTR'], w1, dt, instantRF)
+
+    ### Animate ###
+    clock, spoilTextAlpha, RFTextAlpha, RFText = getClockSpoilAndRFText(config['pulseSeq'], config['TR'], config['nTR'], dt)
     delay = int(100/fps*leapFactor)  # Delay between frames in ticks of 1/100 sec
     nFrames = len(locs[0,0][0][0][0])
     if not config['outFile3D']+config['outFileMxy']+config['outFileMz']:
