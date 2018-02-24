@@ -240,16 +240,18 @@ def applyPulseSeq(Meq, w, T1, T2, pulseSeq, clock, TR, nTR=1, xpos=0, ypos=0):
 
             if 'spoil' in event and event['spoil']: # Spoiler event
                 M[:, -1] = spoil(M[:, -1])
-            elif 'FA' in event and event['dur']==0: # "instant" RF-pulse event (incompatible with gradient)
-                M1 = integrate.odeint(derivs, M[:, -1], t, args=(Meq, 0., w1, np.inf, np.inf))
-            else: # RF-pulse and/or gradient event
-                if any(key in event for key in ['Gx', 'Gy']): # Gradient present
-                    if 'Gx' in event:
-                        wg += 2*np.pi*gyro*event['Gx']/1000*(xpos*locSpacing) # [krad/s]
-                    if 'Gy' in event:
-                        wg += 2*np.pi*gyro*event['Gy']/1000*(ypos*locSpacing) # [krad/s]
-                M1 = integrate.odeint(derivs, M[:, -1], t, args=(Meq, wg, w1, T1, T2))
-            M = np.concatenate((M, M1[1:].transpose()), axis=1)
+            else:
+                if 'FA' in event and event['dur']==0: # "instant" RF-pulse event (incompatible with gradient)
+                    M1 = integrate.odeint(derivs, M[:, -1], t, args=(Meq, 0., w1, np.inf, np.inf))
+                else: # RF-pulse and/or gradient event
+                    if any(key in event for key in ['Gx', 'Gy']): # Gradient present
+                        if 'Gx' in event:
+                            wg += 2*np.pi*gyro*event['Gx']/1000*(xpos*locSpacing) # [krad/s]
+                        if 'Gy' in event:
+                            wg += 2*np.pi*gyro*event['Gy']/1000*(ypos*locSpacing) # [krad/s]
+                    M1 = integrate.odeint(derivs, M[:, -1], t, args=(Meq, wg, w1, T1, T2))
+                M = np.concatenate((M, M1[1:].transpose()), axis=1)
+    
             lastFrame = event['frame']+event['nFrames']
 
         # Then relaxation until end of TR
