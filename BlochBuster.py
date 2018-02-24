@@ -86,7 +86,7 @@ def plotFrame3D(names, locs, title, clock, frame, spoilAlpha, Galpha, RFalpha, G
     # Draw title:
     ax.text(0, 0, 1.4, title, fontsize=14, horizontalalignment='center', color=colors['text'])
     # Draw time
-    #time_text = ax.text(-1, -.8, -1, 'time = %.1f msec' % (clock[frame]), color=colors['text'])
+    time_text = ax.text(-1, -.8, -1, 'time = %.1f msec' % (clock[frame%len(clock)]), color=colors['text'])
 
     # Draw magnetization vectors
     for y in range(ny):
