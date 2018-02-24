@@ -55,7 +55,7 @@ class Arrow3D(FancyArrowPatch):
 
 
 # Creates an animated plot of magnetization in a 3D view
-def plotFrame3D(names, locs, title, clock, frame, spoilTextAlpha, RFTextAlpha, RFText):
+def plotFrame3D(names, locs, title, clock, frame, spoilAlpha, Galpha, RFalpha, Gtext, RFtext):
     nx, ny = locs.shape
     xpos = np.arange(nx)-nx/2
     ypos = ny/2-np.arange(ny)
@@ -114,10 +114,10 @@ def plotFrame3D(names, locs, title, clock, frame, spoilTextAlpha, RFTextAlpha, R
                                             zorder=order[m]+nVecs*int(100*(1-Mnorm))))
     
     # Draw "spoiler" and "FA-pulse" text
-    ax.text(.7, .7, .8, 'spoiler', fontsize=14, alpha=spoilTextAlpha[frame],
+    ax.text(.7, .7, .8, 'spoiler', fontsize=14, alpha=spoilAlpha[frame],
             color=colors['spoilText'], horizontalalignment='right')
-    ax.text(.7, .7, .95, RFText[frame], fontsize=14, alpha=RFTextAlpha[frame],
-            color=colors['RFText'], horizontalalignment='right')
+    ax.text(.7, .7, .95, RFtext[frame], fontsize=14, alpha=RFalpha[frame],
+            color=colors['RFtext'], horizontalalignment='right')
     
     # Draw legend:
     handles, labels = ax.get_legend_handles_labels()
@@ -274,45 +274,64 @@ def simulateComponent(component, Meq, w0, Nisochromats, isochromatStep, pulseSeq
 # Get clock during nTR applications of pulseSeq (clock stands still during excitation)
 # Get opacity and text for spoiler and RF text flashes in 3D plot
 def getText(pulseSeq, TR, nTR, clock):
-    # TODO: update with new pulseSeq format
-    decrPerFrame = .1
-    spoilAlpha = [0.]
-    RFalpha = [0.]
-    RFText = ['']
+    framesSinceSpoil = [np.inf]
+    framesSinceG = [np.inf]
+    framesSinceRF = [np.inf]
+    Gtext = ['']
+    RFtext = ['']
     for rep in range(nTR):
         lastFrame = 0
         for event in pulseSeq:
             # Frames during relaxation
-            nFrames = event['frame']-lastFrame+1
-            spoilAlpha.extend(spoilAlpha[-1]+np.linspace(0, -nFrames*decrPerFrame, nFrames))
-            RFalpha.extend(RFalpha[-1]+np.linspace(0, -nFrames*decrPerFrame, nFrames))
-            RFText += [RFText[-1]]*nFrames
+            nFrames = event['frame']-lastFrame
+            count = np.linspace(0, nFrames, nFrames+1, endpoint=True)
+            framesSinceSpoil.extend(framesSinceSpoil[-1] + count[1:])
+            framesSinceG.extend(framesSinceG[-1] + count[1:])
+            framesSinceRF.extend(framesSinceRF[-1] + count[1:])
+            RFtext += [RFtext[-1]]*nFrames
+            Gtext += [Gtext[-1]]*nFrames
+            
+            #Frames during event
+            count = np.linspace(0, event['nFrames'], event['nFrames']+1, endpoint=True)
             
             if 'spoil' in event and event['spoil']: # Spoiler event
-                spoilAlpha[-1] = 1.
-            elif 'FA' in event: # RF-pulse and/or gradient event
-                spoilAlpha.extend(spoilAlpha[-1]+np.linspace(0, -event['nFrames']*decrPerFrame, event['nFrames']))
-                RFalpha.extend(np.ones(event['nFrames']))
+                framesSinceSpoil[-1] = 0
+            framesSinceSpoil.extend(framesSinceSpoil[-1] + count[1:])
+            if 'FA' in event: # RF-pulse and/or gradient event
+                framesSinceRF[-1] = 0
+                framesSinceRF.extend([0]*event['nFrames'])
                 # TODO: add info about the RF phase angle
-                RF = str(int(abs(event['FA'])))+u'\N{DEGREE SIGN}'+'-pulse'
-                RFText += [RF]*event['nFrames']
-            else: # gradient only event
+                RFtext[-1] = str(int(abs(event['FA'])))+u'\N{DEGREE SIGN}'+'-pulse'
+            else:
+                framesSinceRF.extend(framesSinceRF[-1] + count[1:])
+            RFtext += [RFtext[-1]]*event['nFrames']
+            if any(key in event for key in ['Gx', 'Gy']): # gradient event
+                framesSinceG[-1] = 0
+                framesSinceG.extend([0]*event['nFrames'])
                 # TODO: gradient text
-                spoilAlpha.extend(spoilAlpha[-1]+np.linspace(0, -event['nFrames']*decrPerFrame, event['nFrames']))
-                RFalpha.extend(RFalpha[-1]+np.linspace(0, -event['nFrames']*decrPerFrame, event['nFrames']))
-                RFText += [RF]*event['nFrames']
+                Gtext[-1] = 'gradient'
+            else:
+                framesSinceG.extend(framesSinceG[-1] + count[1:])
+            Gtext += [Gtext[-1]]*event['nFrames']
+
             lastFrame = event['frame'] + event['nFrames']
 
         # Frames during relaxation until end of TR
-        nFrames = len(clock)-1-lastFrame
-        spoilAlpha.extend(spoilAlpha[-1]+np.linspace(0, -nFrames*decrPerFrame, nFrames))
-        RFalpha.extend(RFalpha[-1]+np.linspace(0, -nFrames*decrPerFrame, nFrames))
-        RFText += [RF]*nFrames
+        nFrames = len(clock)-lastFrame
+        count = np.linspace(0, nFrames, nFrames+1, endpoint=True)
+        framesSinceSpoil.extend(framesSinceSpoil[-1] + count[1:])
+        framesSinceG.extend(framesSinceG[-1] + count[1:])
+        framesSinceRF.extend(framesSinceRF[-1] + count[1:])
+        RFtext += [RFtext[-1]]*nFrames
+        Gtext += [Gtext[-1]]*nFrames
             
-    # Clip at zero
-    spoilAlpha = [max(alpha, 0) for alpha in spoilAlpha]
-    RFalpha = [max(alpha, 0) for alpha in RFalpha]
-    return spoilAlpha, RFalpha, RFText
+    # Calculate alphas
+    decrPerFrame = .1 #TODO: include fps
+    spoilAlpha = [max(1.0-frames*decrPerFrame, 0) for frames in framesSinceSpoil]
+    Galpha = [max(1.0-frames*decrPerFrame, 0) for frames in framesSinceG]
+    RFalpha = [max(1.0-frames*decrPerFrame, 0) for frames in framesSinceRF]
+    
+    return spoilAlpha, Galpha, RFalpha, Gtext, RFtext
 
 
 # TODO: nicer without function and zfill
@@ -456,7 +475,7 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False, useFFMPEG = Tru
             locs[x,y] = comps
 
     ### Animate ###
-    spoilTextAlpha, RFTextAlpha, RFText = getText(config['pulseSeq'], config['TR'], config['nTR'], clock)
+    spoilAlpha, Galpha, RFalpha, Gtext, RFtext = getText(config['pulseSeq'], config['TR'], config['nTR'], clock)
     delay = int(100/fps*leapFactor)  # Delay between frames in ticks of 1/100 sec
     nFrames = len(locs[0,0][0][0][0])
     if not config['outFile3D']+config['outFileMxy']+config['outFileMz']:
@@ -481,7 +500,7 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False, useFFMPEG = Tru
             for frame in range(0, nFrames, leapFactor):
                 # Use only every leapFactor frame in animation
                 if plotType == '3D':
-                    fig = plotFrame3D(names, locs, config['title'], clock, frame, spoilTextAlpha, RFTextAlpha, RFText)
+                    fig = plotFrame3D(names, locs, config['title'], clock, frame, spoilAlpha, Galpha, RFalpha, Gtext, RFtext)
                 else:
                     fig = plotFrameMT(names, locs, config['title'], clock, frame, plotType)
                 plt.draw()
