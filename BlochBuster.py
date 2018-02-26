@@ -29,12 +29,13 @@ import optparse
 import yaml
 import FFMPEGwriter
 
-colors = {  'bg': [1,1,1], 
-            'circle': [0,0,0,.03],
-            'axis': [.5,.5,.5],
-            'text': [.05,.05,.05], 
-            'spoilText': [80/256,0,0],
-            'RFText': [0,80/256,0],
+colors = {  'bg':       [1,1,1], 
+            'circle':   [0,0,0,.03],
+            'axis':     [.5,.5,.5],
+            'text':     [.05,.05,.05], 
+            'spoilText':[80/256,0,0],
+            'RFtext':   [0,80/256,0],
+            'Gtext':    [0,0,80/256],
             'comps': [  [.3,.5,.2],
                         [.1,.4,.5],
                         [.5,.3,.2],
@@ -57,16 +58,34 @@ class Arrow3D(FancyArrowPatch):
 # Creates an animated plot of magnetization in a 3D view
 def plotFrame3D(names, locs, title, clock, frame, spoilAlpha, Galpha, RFalpha, Gtext, RFtext):
     nx, ny = locs.shape
-    xpos = np.arange(nx)-nx/2
-    ypos = ny/2-np.arange(ny)
-    scale = 3.0
+    xpos = np.arange(nx)-nx/2+.5
+    ypos = -(np.arange(ny)-ny/2+.5)
 
     # Create 3D axes
-    fig = plt.figure(figsize=(5, 4.7))
-    ax = fig.gca(projection='3d', xlim=(-scale, scale), ylim=(-scale, scale), zlim=(-scale, scale), fc=colors['bg'])
+    aspect = 1.0 # figure aspect ratio
+    figSize = 5 # figure size in inches
+    canvasWidth = figSize
+    canvasHeight = figSize*aspect
+    fig = plt.figure(figsize=(canvasWidth, canvasHeight))
+    axLimit = 50
+    ax = fig.gca(projection='3d', xlim=(-axLimit, axLimit), ylim=(-axLimit, axLimit), zlim=(-axLimit, axLimit), fc=colors['bg'])
+    #azim = -45 # azimuthal angle of x-y-plane
+    #ax.view_init(azim=azim)
     ax.set_axis_off()
-    ax.set_position([-0.26, -0.39, 1.6, 1.58])
-    #ax.view_init(azim=-45)
+    if nx*ny == 1:
+        scale = 80 # for 1 pixel at 45dgr
+    else:
+        scale = 125/max(nx,ny) # for 5x5 pixels at 45dgr
+    height = scale/aspect
+    leftshift=(-.0135)*scale # -.0135 to hit center
+    if nx*ny==1:
+        leftshift+=.0008*scale # shift to fit legend
+    downshift=(-.0135-.001)*scale # -.0135 to hit center -.001 for title
+    left = (1-scale)/2+leftshift
+    bottom = (1-height)/2+downshift
+    ax.set_position([left, bottom, scale, height])
+
+    print(ax.get_proj())
 
     if nx*ny == 1:
         # Draw axes circles
@@ -83,10 +102,25 @@ def plotFrame3D(names, locs, title, clock, frame, spoilAlpha, Galpha, RFalpha, G
         ax.plot([0, 0], [0, 0], [-1, 1], c=colors['axis'], zorder=-1)  # z-axis
         ax.text(0, 0, 1.1, r'$z$', horizontalalignment='center', color=colors['text'])
 
+    plotGrid=False
+    if plotGrid:
+        for x in np.arange(-.1, .1, .01):
+            ax.text2D(x/scale,0,'{:.2f}'.format(x), color='white')
+        for y in np.arange(-.1, .1, .01):
+            ax.text2D(0,y/scale,'{:.2f}'.format(y), color='white')
+
     # Draw title:
-    ax.text(0, 0, 1.4, title, fontsize=14, horizontalalignment='center', color=colors['text'])
+    #ax.text(0, 0, 1.4, title, fontsize=14, horizontalalignment='center', color=colors['text'])
+    title_x, title_y = 0, .08/scale
+    if nx*ny==1:
+        title_y += .015/scale
+    ax.text2D(title_x, title_y, title, fontsize=14, horizontalalignment='center', color=colors['text'])
+    
     # Draw time
-    time_text = ax.text(-1, -.8, -1, 'time = %.1f msec' % (clock[frame%len(clock)]), color=colors['text'])
+    time_x, time_y = -.09/scale, -.075/scale
+    if nx*ny == 1:
+        time_x += -.01/scale
+    time_text = ax.text2D(time_x, time_y, 'time = %.1f msec' % (clock[frame%len(clock)]), color=colors['text'], verticalalignment='bottom')
 
     # Draw magnetization vectors
     for y in range(ny):
@@ -114,10 +148,19 @@ def plotFrame3D(names, locs, title, clock, frame, spoilAlpha, Galpha, RFalpha, G
                                             zorder=order[m]+nVecs*int(100*(1-Mnorm))))
     
     # Draw "spoiler" and "FA-pulse" text
-    ax.text(.7, .7, .8, 'spoiler', fontsize=14, alpha=spoilAlpha[frame],
-            color=colors['spoilText'], horizontalalignment='right')
-    ax.text(.7, .7, .95, RFtext[frame], fontsize=14, alpha=RFalpha[frame],
+    text_x = .09/scale
+    text_y = .07/scale
+    if nx*ny == 1:
+        text_x +=
+    ax.text2D(text_x, text_y, RFtext[frame], fontsize=14, alpha=RFalpha[frame],
             color=colors['RFtext'], horizontalalignment='right')
+    text_y -= .01/scale
+    ax.text2D(text_x, text_y, Gtext[frame], fontsize=14, alpha=Galpha[frame],
+            color=colors['Gtext'], horizontalalignment='right')
+    text_y -= .01/scale
+    ax.text2D(text_x, text_y, 'spoiler', fontsize=14, alpha=spoilAlpha[frame],
+            color=colors['spoilText'], horizontalalignment='right')
+    
     
     # Draw legend:
     handles, labels = ax.get_legend_handles_labels()
@@ -408,11 +451,8 @@ def checkPulseSeq(config):
         
     T = np.ceil(config['TR']/dt)*dt-t[-1] # time up to TR
     if np.round(T/dt)<0:
-        print(t[-1], np.ceil(config['TR']/dt)*dt)
         raise Exception('Pulse sequence events not within TR')
     t = np.append(t[:-1], t[-1]+np.linspace(0, T, np.round(T/dt)+1, endpoint=True))
-    
-    print(t)
     return t
 
 
@@ -439,7 +479,6 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False, useFFMPEG = Tru
     
     ### Format pulseSeq correctly ###
     clock = checkPulseSeq(config)
-    print(config['pulseSeq'])
     
     ### Arrange locations ###
     locSpacing = 0.001      # distance between locations [m]
