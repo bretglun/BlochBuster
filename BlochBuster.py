@@ -58,10 +58,10 @@ class Arrow3D(FancyArrowPatch):
 
 # Creates an animated plot of magnetization in a 3D view
 def plotFrame3D(config, locs, frame):
-    nx, ny = locs.shape
-    nz = 1
+    nx, ny, nz = locs.shape
     xpos = np.arange(nx)-nx/2+.5
     ypos = -(np.arange(ny)-ny/2+.5)
+    zpos = -(np.arange(nz)-nz/2+.5)
 
     # Create 3D axes
     if nx*ny*nz==1:
@@ -117,24 +117,27 @@ def plotFrame3D(config, locs, frame):
     time_text = fig.text(0, 0, 'time = %.1f msec' % (config['clock'][frame%len(config['clock'])]), color=colors['text'], verticalalignment='bottom')
 
     # Draw magnetization vectors
-    for y in range(ny):
-        for x in range(nx):
-            comps = locs[x,y]
-            nVecs = len(comps[0])
-            order = [int((nVecs-1)/2-abs(m-(nVecs-1)/2)) for m in range(nVecs)]
-            for c in range(len(comps)):
-                for m in range(nVecs):
-                    col = colors['comps'][(c) % len(colors['comps'])]
-                    M = comps[c][m][:,frame]
-                    Mnorm = np.linalg.norm(M)
-                    alpha = 1.-2*np.abs((m+.5)/nVecs-.5)
-                    if Mnorm>.05:
-                        ax.add_artist(Arrow3D([xpos[x], xpos[x]+M[0]], [ypos[y], ypos[y]+M[1]],
-                                            [0, M[2]], mutation_scale=20,
-                                            arrowstyle="-|>", lw=2,
-                                            color=col, alpha=alpha, 
-                                            zorder=order[m]+nVecs*int(100*(1-Mnorm))))
-    
+    for z in range(nz):
+        for y in range(ny):
+            for x in range(nx):
+                comps = locs[x,y,z]
+                nVecs = len(comps[0])
+                order = [int((nVecs-1)/2-abs(m-(nVecs-1)/2)) for m in range(nVecs)]
+                for c in range(len(comps)):
+                    for m in range(nVecs):
+                        col = colors['comps'][(c) % len(colors['comps'])]
+                        M = comps[c][m][:,frame]
+                        Mnorm = np.linalg.norm(M)
+                        alpha = 1.-2*np.abs((m+.5)/nVecs-.5)
+                        if Mnorm>.05:
+                            ax.add_artist(Arrow3D(  [xpos[x], xpos[x]+M[0]], 
+                                                    [ypos[y], ypos[y]+M[1]],
+                                                    [zpos[z], zpos[z]+M[2]], 
+                                                    mutation_scale=20,
+                                                    arrowstyle="-|>", lw=2,
+                                                    color=col, alpha=alpha, 
+                                                    zorder=order[m]+nVecs*int(100*(1-Mnorm))))
+        
     # Draw "spoiler" and "FA-pulse" text
     fig.text(1, .94, config['RFtext'][frame], fontsize=14, alpha=config['RFalpha'][frame],
             color=colors['RFtext'], horizontalalignment='right', verticalalignment='top')
@@ -144,7 +147,7 @@ def plotFrame3D(config, locs, frame):
             color=colors['spoilText'], horizontalalignment='right', verticalalignment='top')
     
     # Draw legend:
-    for c in range(len(locs[0,0])):
+    for c in range(len(locs[0,0,0])):
         col = colors['comps'][(c) % len(colors['comps'])]
         ax.plot([0, 0], [0, 0], [0, 0], '-', lw=2, color=col, alpha=1.,
                     label=config['components'][c]['name'])
@@ -210,16 +213,18 @@ def plotFrameMT(config, locs, frame, output):
     ax.arrow(0, ymin, 0, (ymax-ymin)*1.05, fc=colors['text'], ec=colors['text'], lw=1, head_width=yhw, head_length=yhl, clip_on=False, zorder=100)
     
     # Draw magnetization vectors
-    nComps = len(locs[0,0])
-    nVecs = len(locs[0,0][0])
-    nx,ny = locs.shape
+    nComps = len(locs[0,0,0])
+    nVecs = len(locs[0,0,0][0])
+    nx, ny, nz = locs.shape
     M = np.zeros([nComps+1, 3, frame+1])
     for c in range(nComps):
-        for x in range(nx):
+        # TODO: use sum function
+        for z in range(nz):
             for y in range(ny):
-                for m in range(nVecs):
-                    M[c,:,:] += locs[x,y][c][m][:, :frame+1]
-                M[c,:,:] /= nVecs
+                for x in range(nx):
+                    for m in range(nVecs):
+                        M[c,:,:] += locs[x,y,z][c][m][:, :frame+1]
+                    M[c,:,:] /= nVecs
         M[c,:,:] /= locs.size
     M[-1,:,:] = np.sum(M, 0)/nComps # put component sum as last component
 
@@ -381,7 +386,7 @@ def getText(config):
 
 
 def checkPulseSeq(config):
-    allowedKeys = ['t', 'spoil', 'dur', 'FA', 'B1', 'phase', 'Gx', 'Gy']
+    allowedKeys = ['t', 'spoil', 'dur', 'FA', 'B1', 'phase', 'Gx', 'Gy', 'Gz']
     for event in config['pulseSeq']:
         for item in event.keys(): # allowed keys
             if item not in allowedKeys:
@@ -401,7 +406,7 @@ def checkPulseSeq(config):
         event['frame'] = len(t)-1 # starting frame of event
             
         if 'spoil' in event: # Spoiler event
-            if any(key in event for key in ['dur', 'FA', 'B1', 'phase', 'Gx', 'Gy']):
+            if any(key in event for key in ['dur', 'FA', 'B1', 'phase', 'Gx', 'Gy', 'Gz']):
                 raise Exception('Spoiler event should only have event time t and spoil: true')
             event['dur'] = 0
             event['nFrames'] = 0
@@ -431,7 +436,7 @@ def checkPulseSeq(config):
                 event['FA'] = event['FA']*np.exp(1j*radians(event['phase']))
             event['w1'] = radians(event['FA'])/(event['nFrames']*dt)
 
-        if 'Gx' in event or 'Gy' in event: # Gradient (no RF)
+        if any(key in event for key in ['Gx', 'Gy', 'Gz']): # Gradient (no RF)
             if not ('dur' in event and event['dur']>0):
                 raise Exception('Gradient must have a specified duration>0 (dur [ms])')
             if 'FA' not in event and 'phase' in event:
@@ -441,6 +446,8 @@ def checkPulseSeq(config):
                 Gx = event['Gx']*event['nFrames']*dt/event['dur'] # adjust Gx for truncation of duration
             if 'Gy' in event:
                 Gy = event['Gy']*event['nFrames']*dt/event['dur'] # adjust Gy for truncation of duration
+            if 'Gz' in event:
+                Gz = event['Gz']*event['nFrames']*dt/event['dur'] # adjust Gz for truncation of duration
             
         if event['dur']>0:
             event['dur'] = event['nFrames']*dt  # truncate duration to whole frames
@@ -460,19 +467,18 @@ def arrangeLocations(slices, nx ,ny, nz):
         slices = [slices]
     if not isinstance(slices[0][0], list):
         slices = [slices]
-    if nz is not None and len(slices)!=nz:
+    if len(nz)==0:
+        nz.append(len(slices))
+    elif len(slices)!=nz[0]:
         raise Exception('Config "locations": number of slices do not match')
-    else:
-        nz = len(slices)
-    if ny is not None and len(slices[0])!=ny:
+    if len(ny)==0:
+        ny.append(len(slices[0]))
+    elif len(slices[0])!=ny[0]:
         raise Exception('Config "locations": number of rows do not match')
-    else:
-        ny = len(slices[0])
-    if nx is not None and len(slices[0][0])!=nx:
+    if len(nx)==0:
+        nx.append(len(slices[0][0]))
+    elif  len(slices[0][0])!=nx[0]:
         raise Exception('Config "locations": number of elements do not match')
-    else:
-        nx = len(slices[0][0])
-    print(nx,ny,nz)
     return slices
 
 
@@ -504,14 +510,16 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False, useFFMPEG = Tru
     locSpacing = 0.001      # distance between locations [m]
     if not 'locations' in config:
         config['locations'] = [[[1]]]
-        nx = ny = nz = 1
+        nx = ny = nz = [1]
     else:
-        nx, ny, nz = None, None, None
+        nx, ny, nz = [], [], []
         if isinstance(config['locations'], dict):
-            config['locations'] = {arrangeLocations(slices, nx ,ny, nz) for slices in config['locations']}
+            for comp in iter(config['locations']):
+                config['locations'][comp] = arrangeLocations(config['locations'][comp], nx ,ny, nz)
         else:
             config['locations'] = arrangeLocations(config['locations'], nx ,ny, nz)
-    print(nx,ny,nz)
+    nx, ny, nz = nx[0], ny[0], nz[0]
+
     ### Simulate ###
     locs = np.empty((nx,ny,nz), dtype=list)
     for z in range(nz):
@@ -537,7 +545,7 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False, useFFMPEG = Tru
     ### Animate ###
     getText(config) # prepare text flashes for 3D plot 
     delay = int(100/fps*leapFactor)  # Delay between frames in ticks of 1/100 sec
-    nFrames = len(locs[0,0][0][0][0])
+    nFrames = len(locs[0,0,0][0][0][0])
     #if not config['outFile3D']+config['outFileMxy']+config['outFileMz']:
     if 'output' not in config:
         raise Exception('No outfile (outFile3D/outFileMxy/outFileMz) was found in config')
