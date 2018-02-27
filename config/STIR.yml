@@ -26,7 +26,7 @@ components:
     T2: 84 
 nIsochromats: 1
 isochromatStep: 0.01
-speed: 0.03
+speed: 0.05
 outFile3D: "STIR_3D.gif"
 outFileMxy: ""
-outFileMz: "STIR_Mz.gif"
+outFileMz: ""

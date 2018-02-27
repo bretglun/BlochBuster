@@ -16,7 +16,6 @@
 
 import mpl_toolkits.mplot3d.art3d as art3d
 from mpl_toolkits.mplot3d import proj3d
-from mpl_toolkits.mplot3d import Axes3D
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -29,61 +28,6 @@ import shutil
 import optparse
 import yaml
 import FFMPEGwriter
-
-
-def make_get_proj(self, rx, ry, rz):
-    '''
-    Return a variation on :func:`~mpl_toolkit.mplot2d.axes3d.Axes3D.getproj` that
-    makes the box aspect ratio equal to *rx:ry:rz*, using an axes object *self*.
-    '''
-
-    rm = max(rx, ry, rz)
-    kx = rm / rx; ky = rm / ry; kz = rm / rz;
-
-    # Copied directly from mpl_toolkit/mplot3d/axes3d.py. New or modified lines are
-    # marked by ##
-    def get_proj():
-        relev, razim = np.pi * self.elev/180, np.pi * self.azim/180
-
-        xmin, xmax = self.get_xlim3d()
-        ymin, ymax = self.get_ylim3d()
-        zmin, zmax = self.get_zlim3d()
-
-        # transform to uniform world coordinates 0-1.0,0-1.0,0-1.0
-        worldM = proj3d.world_transformation(xmin, xmax,
-                                             ymin, ymax,
-                                             zmin, zmax)
-
-        # adjust the aspect ratio                          ##
-        aspectM = proj3d.world_transformation(-kx + 1, kx, ##
-                                              -ky + 1, ky, ##
-                                              -kz + 1, kz) ##
-
-        # look into the middle of the new coordinates
-        R = np.array([0.5, 0.5, 0.5])
-
-        xp = R[0] + np.cos(razim) * np.cos(relev) * self.dist
-        yp = R[1] + np.sin(razim) * np.cos(relev) * self.dist
-        zp = R[2] + np.sin(relev) * self.dist
-        E = np.array((xp, yp, zp))
-
-        self.eye = E
-        self.vvec = R - E
-        self.vvec = self.vvec / proj3d.mod(self.vvec)
-
-        if abs(relev) > np.pi/2:
-            # upside down
-            V = np.array((0, 0, -1))
-        else:
-            V = np.array((0, 0, 1))
-        zfront, zback = -self.dist, self.dist
-
-        viewM = proj3d.view_transformation(E, R, V)
-        perspM = proj3d.persp_transformation(zfront, zback)
-        M0 = np.dot(viewM, np.dot(aspectM, worldM)) ##
-        M = np.dot(perspM, M0)
-        return M
-    return get_proj
 
 
 colors = {  'bg':       [1,1,1], 
@@ -120,47 +64,38 @@ def plotFrame3D(names, locs, title, clock, frame, spoilAlpha, Galpha, RFalpha, G
     ypos = -(np.arange(ny)-ny/2+.5)
 
     # Create 3D axes
-    aspect = 1.0 # figure aspect ratio
+    if nx*ny*nz==1:
+        aspect = .95 # figure aspect ratio
+    elif nz==1 and ny==1 and nx>1:
+        aspect = 0.6
+    elif nz==1 and nx>1 and ny>1:
+        aspect = .75
+    else:
+        aspect = 1
     figSize = 5 # figure size in inches
     canvasWidth = figSize
     canvasHeight = figSize*aspect
     fig = plt.figure(figsize=(canvasWidth, canvasHeight))
-    #fig = plt.figure()
     axLimit = max(nx,ny,nz)/2+.5
     ax = fig.gca(projection='3d', xlim=(-axLimit,axLimit), ylim=(-axLimit,axLimit), zlim=(-axLimit,axLimit), fc=colors['bg'])
     ax.set_aspect('equal')
-    #print(ax.get_position())
-    #Bbox(x0=0.125, y0=0.10999999999999999, x1=0.9, y1=0.88)
-    left = -.625
-    bottom = -.65
-    width = 2.3
-    height = 1.77
-    #ax.set_position([left, bottom, width, height])
-    ax.set_position([-0.26, -0.39, 1.6, 1.58])
     
-    #plt.tight_layout()
-    #ax.get_proj = make_get_proj(ax, nx, ny, 1)
-    #ax.set_aspect(1.0)
-    #azim = -45 # azimuthal angle of x-y-plane
-    #ax.view_init(azim=azim)
-    #ax.set_axis_off()
-    if nx*ny == 1:
-        scale = 1.8 # for 1 pixel at 45dgr
+    if nx*ny*nz>1:
+        azim = -78 # azimuthal angle of x-y-plane
+        ax.view_init(azim=azim) #ax.view_init(azim=azim, elev=elev)
+    ax.set_axis_off()
+    width = 1.65 # to get tight cropping
+    height = width/aspect
+    left = (1-width)/2
+    bottom = (1-height)/2
+    if nx*ny==1: # shift to fit legend
+        left += .035
+        bottom += -.075
     else:
-    #    scale = 125/max(nx,ny) # for 5x5 pixels at 45dgr
-        scale = 1.8 # for 1 pixel at 45dgr
-    height = scale/aspect
-    leftshift=(-.0135)*scale # -.0135 to hit center
-    if nx*ny==1:
-        leftshift+=.0008*scale # shift to fit legend
-    downshift=(-.0135-.001)*scale # -.0135 to hit center -.001 for title
-    left = (1-scale)/2+leftshift
-    bottom = (1-height)/2+downshift
-    ax.set_position([left, bottom, scale, height])
+        bottom += -.085
+    ax.set_position([left, bottom, width, height])
 
-    #print(ax.get_proj())
-
-    if nx*ny == 1:
+    if nx*ny*nz == 1:
         # Draw axes circles
         for i in ["x", "y", "z"]:
             circle = Circle((0, 0), 1, fill=True, lw=1, fc=colors['circle'])
@@ -175,26 +110,11 @@ def plotFrame3D(names, locs, title, clock, frame, spoilAlpha, Galpha, RFalpha, G
         ax.plot([0, 0], [0, 0], [-1, 1], c=colors['axis'], zorder=-1)  # z-axis
         ax.text(0, 0, 1.05, r'$z$', horizontalalignment='center', color=colors['text'])
 
-    plotGrid=False
-    if plotGrid:
-        for x in np.arange(-.1, .1, .01):
-            ax.text2D(x/scale,0,'{:.2f}'.format(x), color='white')
-        for y in np.arange(-.1, .1, .01):
-            ax.text2D(0,y/scale,'{:.2f}'.format(y), color='white')
-
     # Draw title:
-    #ax.text(0, 0, 1.4, title, fontsize=14, horizontalalignment='center', color=colors['text'])
-    fig.text(.5, .9, title, fontsize=14, horizontalalignment='center', color=colors['text'])
-    title_x, title_y = 0, .08/scale
-    if nx*ny==1:
-        title_y += .015/scale
-    #ax.text2D(title_x, title_y, title, fontsize=14, horizontalalignment='center', color=colors['text'])
-    
+    fig.text(.5, 1, title, fontsize=14, horizontalalignment='center', verticalalignment='top', color=colors['text'])
+
     # Draw time
-    time_x, time_y = -.09/scale, -.075/scale
-    if nx*ny == 1:
-        time_x += -.01/scale
-    #time_text = ax.text2D(time_x, time_y, 'time = %.1f msec' % (clock[frame%len(clock)]), color=colors['text'], verticalalignment='bottom')
+    time_text = fig.text(0, 0, 'time = %.1f msec' % (clock[frame%len(clock)]), color=colors['text'], verticalalignment='bottom')
 
     # Draw magnetization vectors
     for y in range(ny):
@@ -222,19 +142,12 @@ def plotFrame3D(names, locs, title, clock, frame, spoilAlpha, Galpha, RFalpha, G
                                             zorder=order[m]+nVecs*int(100*(1-Mnorm))))
     
     # Draw "spoiler" and "FA-pulse" text
-    text_x = .09/scale
-    text_y = .07/scale
-    if nx*ny == 1:
-        text_x -= .01/scale
-    #ax.text2D(text_x, text_y, RFtext[frame], fontsize=14, alpha=RFalpha[frame],
-    #        color=colors['RFtext'], horizontalalignment='right')
-    text_y -= .01/scale
-    #ax.text2D(text_x, text_y, Gtext[frame], fontsize=14, alpha=Galpha[frame],
-    #        color=colors['Gtext'], horizontalalignment='right')
-    text_y -= .01/scale
-    #ax.text2D(text_x, text_y, 'spoiler', fontsize=14, alpha=spoilAlpha[frame],
-    #        color=colors['spoilText'], horizontalalignment='right')
-    
+    fig.text(1, .94, RFtext[frame], fontsize=14, alpha=RFalpha[frame],
+            color=colors['RFtext'], horizontalalignment='right', verticalalignment='top')
+    fig.text(1, .88, Gtext[frame], fontsize=14, alpha=Galpha[frame],
+            color=colors['Gtext'], horizontalalignment='right', verticalalignment='top')
+    fig.text(1, .82, 'spoiler', fontsize=14, alpha=spoilAlpha[frame],
+            color=colors['spoilText'], horizontalalignment='right', verticalalignment='top')
     
     # Draw legend:
     handles, labels = ax.get_legend_handles_labels()
