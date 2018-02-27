@@ -162,13 +162,13 @@ def plotFrame3D(config, locs, frame):
 
 
 # Creates an animated plot of magnetization over time plotType='xy' for transversal and 'z' for longitudinal
-def plotFrameMT(names, locs, title, clock, frame, plotType):
+def plotFrameMT(config, locs, frame, plotType):
     if plotType not in ['xy', 'z']:
         raise Exception(
              'plotType must be xy (for transversal) or z (for longitudinal)')
 
     # create diagram
-    xmin, xmax = 0, clock[-1]
+    xmin, xmax = 0, config['clock'][-1]
     if plotType == 'xy':
         ymin, ymax = 0, 1
     elif plotType == 'z':
@@ -178,7 +178,7 @@ def plotFrameMT(names, locs, title, clock, frame, plotType):
     for side in ['bottom', 'right', 'top', 'left']:
         ax.spines[side].set_visible(False)  # remove default axes
     ax.grid()
-    plt.title(title, color=colors['text'])
+    plt.title(config['title'], color=colors['text'])
     plt.xlabel('time[ms]', horizontalalignment='right', color=colors['text'])
     if plotType == 'xy':
         ax.xaxis.set_label_coords(1.1, .1)
@@ -211,19 +211,19 @@ def plotFrameMT(names, locs, title, clock, frame, plotType):
             Mxy = np.zeros([2, frame+1])
             for m in range(nVecs):
                 Mxy += comps[c][m][:2, :frame+1]
-            ax.plot(clock[:frame+1], np.linalg.norm(Mxy, axis=0)/nVecs, '-', lw=2, color=col, label=names[c])
+            ax.plot(config['clock'][:frame+1], np.linalg.norm(Mxy, axis=0)/nVecs, '-', lw=2, color=col, label=config['components'][c]['name'])
             Msum += Mxy
-        # Special case: also plot sum of fat and water
-        if 'water' in names and 'fat' in names:
+        # Special case: if fat and water: also plot their sum
+        if all(key in [comp['name'] for comp in config['components']] for key in ['water', 'fat']):
             col = colors['comps'][(len(comps)) % len(colors['comps'])]
-            ax.plot(clock[:frame+1], np.linalg.norm(Msum, axis=0)/nVecs/len(comps), '-', lw=2, color=col, label=names[c])
+            ax.plot(config['clock'][:frame+1], np.linalg.norm(Msum, axis=0)/nVecs/len(comps), '-', lw=2, color=col, label=config['components'][c]['name'])
     elif plotType == 'z':
         for c in range(len(comps)):
             col = colors['comps'][(c) % len(colors['comps'])]
             Mz = np.zeros([frame+1])
             for m in range(nVecs):
                 Mz += comps[c][m][2, :frame+1]
-            ax.plot(clock[:frame+1], Mz/nVecs, '-', lw=2, color=col, label=names[c])
+            ax.plot(config['clock'][:frame+1], Mz/nVecs, '-', lw=2, color=col, label=config['components'][c]['name'])
 
     return fig
 
@@ -523,7 +523,7 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False, useFFMPEG = Tru
                 if plotType == '3D':
                     fig = plotFrame3D(config, locs, frame)
                 else:
-                    fig = plotFrameMT(names, locs, config['title'], clock, frame, plotType)
+                    fig = plotFrameMT(config, locs, frame, plotType)
                 plt.draw()
                 if useFFMPEG:
                     ffmpegWriter.addFrame(fig)
