@@ -128,12 +128,6 @@ def plotFrame3D(names, locs, title, clock, frame, spoilAlpha, Galpha, RFalpha, G
                     M = comps[c][m][:,frame]
                     Mnorm = np.linalg.norm(M)
                     alpha = 1.-2*np.abs((m+.5)/nVecs-.5)
-                    '''
-                    if m == nVecs//2:  # Just for getting labels
-                        ax.plot([0, 0], [0, 0], [0, 0], '-', lw=2, color=col, alpha=1.,
-                                label=names[c])
-                                '''
-                        # TODO: fix legend for multiple locations
                     if Mnorm>.05:
                         ax.add_artist(Arrow3D([xpos[x], xpos[x]+M[0]], [ypos[y], ypos[y]+M[1]],
                                             [0, M[2]], mutation_scale=20,
@@ -150,12 +144,16 @@ def plotFrame3D(names, locs, title, clock, frame, spoilAlpha, Galpha, RFalpha, G
             color=colors['spoilText'], horizontalalignment='right', verticalalignment='top')
     
     # Draw legend:
+    for c in range(len(locs[0,0])):
+        col = colors['comps'][(c) % len(colors['comps'])]
+        ax.plot([0, 0], [0, 0], [0, 0], '-', lw=2, color=col, alpha=1.,
+                    label=names[c])
     handles, labels = ax.get_legend_handles_labels()
-    leg = ax.legend(
+    leg = fig.legend(
                     [plt.Line2D((0, 1), (0, 0), lw=2, color=colors['comps'][(c) %
                                 len(colors['comps'])]) for c, handle in enumerate(
                                 handles)], labels, loc=2, bbox_to_anchor=[
-                                .14, .83])
+                                0, .94])
     leg.draw_frame(False)
     for text in leg.get_texts():
         text.set_color(colors['text'])
