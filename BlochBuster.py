@@ -159,6 +159,8 @@ def plotFrame3D(config, locs, frame):
     
     return fig
 
+# TODO: plot type psd! (and possibly k-space)
+
 
 # Creates an animated plot of magnetization over time output type='xy' for transversal and 'z' for longitudinal
 def plotFrameMT(config, locs, frame, output):
@@ -259,7 +261,7 @@ def derivs(M, t, Meq, w, w1, T1, T2):  # Bloch equations in rotating frame
 
 
 # Simulate magnetization vector during nTR applications of pulseSeq
-def applyPulseSeq(config, Meq, w, T1, T2, xpos=0, ypos=0):
+def applyPulseSeq(config, Meq, w, T1, T2, xpos=0, ypos=0, zpos=0):
     # Initial state is equilibrium magnetization
     M = np.array([[0.], [0.], [Meq]])
     for rep in range(config['nTR']):
@@ -284,11 +286,13 @@ def applyPulseSeq(config, Meq, w, T1, T2, xpos=0, ypos=0):
                 if 'FA' in event and event['dur']==0: # "instant" RF-pulse event (incompatible with gradient)
                     M1 = integrate.odeint(derivs, M[:, -1], t, args=(Meq, 0., w1, np.inf, np.inf))
                 else: # RF-pulse and/or gradient event
-                    if any(key in event for key in ['Gx', 'Gy']): # Gradient present
+                    if any(key in event for key in ['Gx', 'Gy', 'Gz']): # Gradient present
                         if 'Gx' in event:
                             wg += 2*np.pi*gyro*event['Gx']/1000*(xpos*locSpacing) # [krad/s]
                         if 'Gy' in event:
                             wg += 2*np.pi*gyro*event['Gy']/1000*(ypos*locSpacing) # [krad/s]
+                        if 'Gz' in event:
+                            wg += 2*np.pi*gyro*event['Gz']/1000*(zpos*locSpacing) # [krad/s]
                     M1 = integrate.odeint(derivs, M[:, -1], t, args=(Meq, wg, w1, T1, T2))
                 M = np.concatenate((M, M1[1:].transpose()), axis=1)
     
@@ -303,13 +307,13 @@ def applyPulseSeq(config, Meq, w, T1, T2, xpos=0, ypos=0):
 
 
 # Simulate Nisochromats dephasing magnetization vectors per component
-def simulateComponent(config, component, Meq, xpos=0, ypos=0):
+def simulateComponent(config, component, Meq, xpos=0, ypos=0, zpos=0):
     # Shifts in ppm for dephasing vectors:
     isochromats = [(2*i+1-config['nIsochromats'])/2*config['isochromatStep']+component['CS'] for i in range(0, config['nIsochromats'])]
     comp = []
     for isochromat in isochromats:
         w = config['w0']*isochromat*1e-6  # Demodulated frequency [krad]
-        comp.append(applyPulseSeq(config, Meq, w, component['T1'], component['T2'], xpos, ypos))
+        comp.append(applyPulseSeq(config, Meq, w, component['T1'], component['T2'], xpos, ypos, zpos))
     return comp
 
 
@@ -347,14 +351,13 @@ def getText(config):
             else:
                 framesSinceRF.extend(framesSinceRF[-1] + count[1:])
             config['RFtext'] += [config['RFtext'][-1]]*event['nFrames']
-            if any(key in event for key in ['Gx', 'Gy']): # gradient event
+            if any(key in event for key in ['Gx', 'Gy', 'Gz']): # gradient event
                 framesSinceG[-1] = 0
                 framesSinceG.extend([0]*event['nFrames'])
                 grad = ''
-                if 'Gx' in event:
-                    grad += 'Gx: {} mT/m'.format(event['Gx'])
-                if 'Gy' in event:
-                    grad += '  Gy: {} mT/m'.format(event['Gy'])
+                for g in ['Gx', 'Gy', 'Gz']:
+                    if g in event:
+                        grad += '  {}: {} mT/m'.format(g, event[g])
                 config['Gtext'][-1] = grad
             else:
                 framesSinceG.extend(framesSinceG[-1] + count[1:])
@@ -450,6 +453,29 @@ def checkPulseSeq(config):
     config['clock'] = t
 
 
+def arrangeLocations(slices, nx ,ny, nz):
+    if not isinstance(slices, list):
+        raise Exception('Did not expect {} in config "locations"'.format(type(slices)))
+    if not isinstance(slices[0], list):
+        slices = [slices]
+    if not isinstance(slices[0][0], list):
+        slices = [slices]
+    if nz is not None and len(slices)!=nz:
+        raise Exception('Config "locations": number of slices do not match')
+    else:
+        nz = len(slices)
+    if ny is not None and len(slices[0])!=ny:
+        raise Exception('Config "locations": number of rows do not match')
+    else:
+        ny = len(slices[0])
+    if nx is not None and len(slices[0][0])!=nx:
+        raise Exception('Config "locations": number of elements do not match')
+    else:
+        nx = len(slices[0][0])
+    print(nx,ny,nz)
+    return slices
+
+
 # Main program
 def BlochBuster(configFile, leapFactor=1, blackBackground=False, useFFMPEG = True):
     # Set global constants
@@ -463,7 +489,7 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False, useFFMPEG = Tru
         try:
             config = yaml.load(f)
         except yaml.YAMLError as exc:
-            print(exc)
+            raise Exception('Error reading config file') from exc
     
     ### Calculations ###
     gyro = 42577.			# Gyromagnetic ratio [kHz/T]
@@ -477,36 +503,36 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False, useFFMPEG = Tru
     ### Arrange locations ###
     locSpacing = 0.001      # distance between locations [m]
     if not 'locations' in config:
-        config['locations'] = [[1]]
-        nx = ny = 1
+        config['locations'] = [[[1]]]
+        nx = ny = nz = 1
     else:
+        nx, ny, nz = None, None, None
         if isinstance(config['locations'], dict):
-            rows = next(iter(config['locations'].values()))
-        elif isinstance(config['locations'], list):
-            rows = config['locations']
+            config['locations'] = {arrangeLocations(slices, nx ,ny, nz) for slices in config['locations']}
         else:
-            raise Exception('Did not expect {} in config "locations"'.format(type(config['locations'])))
-        if not isinstance(rows[0], list):
-            raise Exception('Config "locations" should be a list of lists, such as [[1, 1]]')
-        ny = len(rows)
-        nx = len(rows[0])
-
+            config['locations'] = arrangeLocations(config['locations'], nx ,ny, nz)
+    print(nx,ny,nz)
     ### Simulate ###
-    locs = np.empty((nx,ny), dtype=list)
-    for y in range(ny):
-        for x in range(nx):
-            comps = []
-            for component in config['components']:
-                if component['name'] in config['locations']:
-                    Meq = config['locations'][component['name']][y][x]
-                elif isinstance(config['locations'], list):
-                    Meq = config['locations'][y][x]
-                else:
-                    continue
-                xpos = x+.5-nx/2
-                ypos = y+.5-ny/2
-                comps.append(simulateComponent(config, component, Meq, xpos, ypos))
-            locs[x,y] = comps
+    locs = np.empty((nx,ny,nz), dtype=list)
+    for z in range(nz):
+        for y in range(ny):
+            for x in range(nx):
+                comps = []
+                for component in config['components']:
+                    if component['name'] in config['locations']:
+                        try:
+                            Meq = config['locations'][component['name']][z][y][x]
+                        except:
+                            raise Exception('Is the location matrix shape equal for all components?')
+                    elif isinstance(config['locations'], list):
+                        Meq = config['locations'][z][y][x]
+                    else:
+                        continue
+                    xpos = x+.5-nx/2
+                    ypos = y+.5-ny/2
+                    zpos = z+.5-nz/2
+                    comps.append(simulateComponent(config, component, Meq, xpos, ypos, zpos))
+                locs[x,y,z] = comps
 
     ### Animate ###
     getText(config) # prepare text flashes for 3D plot 
