@@ -340,8 +340,12 @@ def getText(pulseSeq, TR, nTR, clock):
             if any(key in event for key in ['Gx', 'Gy']): # gradient event
                 framesSinceG[-1] = 0
                 framesSinceG.extend([0]*event['nFrames'])
-                # TODO: gradient text
-                Gtext[-1] = 'gradient'
+                grad = ''
+                if 'Gx' in event:
+                    grad += 'Gx: {} mT/m'.format(event['Gx'])
+                if 'Gy' in event:
+                    grad += '  Gy: {} mT/m'.format(event['Gy'])
+                Gtext[-1] = grad
             else:
                 framesSinceG.extend(framesSinceG[-1] + count[1:])
             Gtext += [Gtext[-1]]*event['nFrames']
