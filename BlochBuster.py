@@ -149,8 +149,7 @@ def plotFrame3D(config, locs, frame):
         ax.plot([0, 0], [0, 0], [0, 0], '-', lw=2, color=col, alpha=1.,
                     label=config['components'][c]['name'])
     handles, labels = ax.get_legend_handles_labels()
-    leg = fig.legend(
-                    [plt.Line2D((0, 1), (0, 0), lw=2, color=colors['comps'][(c) %
+    leg = fig.legend([plt.Line2D((0, 1), (0, 0), lw=2, color=colors['comps'][(c) %
                                 len(colors['comps'])]) for c, handle in enumerate(
                                 handles)], labels, loc=2, bbox_to_anchor=[
                                 -.025, .94])
@@ -201,29 +200,33 @@ def plotFrameMT(config, locs, frame, plotType):
     yhl = hl/(xmax-xmin)*(ymax-ymin) * width/height
     ax.arrow(xmin, 0, (xmax-xmin)*1.05, 0, fc=colors['text'], ec=colors['text'], lw=1, head_width=hw, head_length=hl, clip_on=False, zorder=100)
     ax.arrow(0, ymin, 0, (ymax-ymin)*1.05, fc=colors['text'], ec=colors['text'], lw=1, head_width=yhw, head_length=yhl, clip_on=False, zorder=100)
+    
     # Draw magnetization vectors
     comps = locs[0,0] #TODO: sum magnetization from all locations
-    nVecs = len(comps[0])
+    nx,ny = locs.shape
+    M = np.zeros([len(comps)+1, 3, frame+1])
+    for c in range(len(comps)):
+        for x in range(nx):
+            for y in range(ny):
+                for m in range(len(comps[c])):
+                    M[c,:,:] += locs[x,y][c][m][:, :frame+1]
+                M[c,:,:] /= len(comps[c])
+        M[c,:,:] /= locs.size
+    M[-1,:,:] = np.sum(M, 0)/len(comps)
+
     if plotType == 'xy':
         Msum = np.zeros([2, frame+1])
         for c in range(len(comps)):
             col = colors['comps'][(c) % len(colors['comps'])]
-            Mxy = np.zeros([2, frame+1])
-            for m in range(nVecs):
-                Mxy += comps[c][m][:2, :frame+1]
-            ax.plot(config['clock'][:frame+1], np.linalg.norm(Mxy, axis=0)/nVecs, '-', lw=2, color=col, label=config['components'][c]['name'])
-            Msum += Mxy
+            ax.plot(config['clock'][:frame+1], np.linalg.norm(M[c,:2,:], axis=0), '-', lw=2, color=col, label=config['components'][c]['name'])
         # Special case: if fat and water: also plot their sum
         if all(key in [comp['name'] for comp in config['components']] for key in ['water', 'fat']):
             col = colors['comps'][(len(comps)) % len(colors['comps'])]
-            ax.plot(config['clock'][:frame+1], np.linalg.norm(Msum, axis=0)/nVecs/len(comps), '-', lw=2, color=col, label=config['components'][c]['name'])
+            ax.plot(config['clock'][:frame+1], np.linalg.norm(M[-1,:,:], axis=0), '-', lw=2, color=col, label=config['components'][c]['name'])
     elif plotType == 'z':
         for c in range(len(comps)):
             col = colors['comps'][(c) % len(colors['comps'])]
-            Mz = np.zeros([frame+1])
-            for m in range(nVecs):
-                Mz += comps[c][m][2, :frame+1]
-            ax.plot(config['clock'][:frame+1], Mz/nVecs, '-', lw=2, color=col, label=config['components'][c]['name'])
+            ax.plot(config['clock'][:frame+1], M[c,2,:], '-', lw=2, color=col, label=config['components'][c]['name'])
 
     return fig
 
