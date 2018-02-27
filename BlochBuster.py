@@ -160,17 +160,19 @@ def plotFrame3D(config, locs, frame):
     return fig
 
 
-# Creates an animated plot of magnetization over time plotType='xy' for transversal and 'z' for longitudinal
-def plotFrameMT(config, locs, frame, plotType):
-    if plotType not in ['xy', 'z']:
-        raise Exception(
-             'plotType must be xy (for transversal) or z (for longitudinal)')
+# Creates an animated plot of magnetization over time output type='xy' for transversal and 'z' for longitudinal
+def plotFrameMT(config, locs, frame, output):
+    if output['type'] not in ['xy', 'z']:
+        raise Exception('output "type" must be 3D, xy (transversal) or z (longitudinal)')
 
     # create diagram
     xmin, xmax = 0, config['clock'][-1]
-    if plotType == 'xy':
-        ymin, ymax = 0, 1
-    elif plotType == 'z':
+    if output['type'] == 'xy':
+        if 'abs' in output and not output['abs']:
+            ymin, ymax = -1, 1
+        else:
+            ymin, ymax = 0, 1
+    elif output['type'] == 'z':
         ymin, ymax = -1, 1
     fig = plt.figure(figsize=(5, 2.7), facecolor=colors['bg'])
     ax = fig.gca(xlim=(xmin, xmax), ylim=(ymin, ymax), fc=colors['bg'])
@@ -179,10 +181,14 @@ def plotFrameMT(config, locs, frame, plotType):
     ax.grid()
     plt.title(config['title'], color=colors['text'])
     plt.xlabel('time[ms]', horizontalalignment='right', color=colors['text'])
-    if plotType == 'xy':
-        ax.xaxis.set_label_coords(1.1, .1)
-        plt.ylabel('$|M_{xy}|$', rotation=0, color=colors['text'])
-    elif plotType == 'z':
+    if output['type'] == 'xy':
+        if 'abs' in output and not output['abs']:
+            ax.xaxis.set_label_coords(1.1, .475)
+            plt.ylabel('$M_x, M_y$', rotation=0, color=colors['text'])
+        else: # absolute value of transversal magnetization
+            ax.xaxis.set_label_coords(1.1, .1)
+            plt.ylabel('$|M_{xy}|$', rotation=0, color=colors['text'])
+    elif output['type'] == 'z':
         ax.xaxis.set_label_coords(1.1, .475)
         plt.ylabel('$M_z$', rotation=0, color=colors['text'])
     ax.yaxis.set_label_coords(-.07, .95)
@@ -202,31 +208,34 @@ def plotFrameMT(config, locs, frame, plotType):
     ax.arrow(0, ymin, 0, (ymax-ymin)*1.05, fc=colors['text'], ec=colors['text'], lw=1, head_width=yhw, head_length=yhl, clip_on=False, zorder=100)
     
     # Draw magnetization vectors
-    comps = locs[0,0] #TODO: sum magnetization from all locations
+    nComps = len(locs[0,0])
+    nVecs = len(locs[0,0][0])
     nx,ny = locs.shape
-    M = np.zeros([len(comps)+1, 3, frame+1])
-    for c in range(len(comps)):
+    M = np.zeros([nComps+1, 3, frame+1])
+    for c in range(nComps):
         for x in range(nx):
             for y in range(ny):
-                for m in range(len(comps[c])):
+                for m in range(nVecs):
                     M[c,:,:] += locs[x,y][c][m][:, :frame+1]
-                M[c,:,:] /= len(comps[c])
+                M[c,:,:] /= nVecs
         M[c,:,:] /= locs.size
-    M[-1,:,:] = np.sum(M, 0)/len(comps)
+    M[-1,:,:] = np.sum(M, 0)/nComps # put component sum as last component
 
-    if plotType == 'xy':
-        Msum = np.zeros([2, frame+1])
-        for c in range(len(comps)):
+    if output['type'] == 'xy':
+        for c in range(nComps+1):
+            col = colors['comps'][c % len(colors['comps'])]
+            # only plot sum component if both water and fat (special case)
+            if c<nComps or all(key in [comp['name'] for comp in config['components']] for key in ['water', 'fat']):
+                if 'abs' in output and not output['abs']: # real and imag part of transversal magnetization
+                    ax.plot(config['clock'][:frame+1], M[c,0,:], '-', lw=2, color=col)
+                    col = colors['comps'][c+nComps % len(colors['comps'])]
+                    ax.plot(config['clock'][:frame+1], M[c,1,:], '-', lw=2, color=col)
+                else: # absolute value of transversal magnetization
+                    ax.plot(config['clock'][:frame+1], np.linalg.norm(M[c,:2,:], axis=0), '-', lw=2, color=col)
+    elif output['type'] == 'z':
+        for c in range(nComps):
             col = colors['comps'][(c) % len(colors['comps'])]
-            ax.plot(config['clock'][:frame+1], np.linalg.norm(M[c,:2,:], axis=0), '-', lw=2, color=col, label=config['components'][c]['name'])
-        # Special case: if fat and water: also plot their sum
-        if all(key in [comp['name'] for comp in config['components']] for key in ['water', 'fat']):
-            col = colors['comps'][(len(comps)) % len(colors['comps'])]
-            ax.plot(config['clock'][:frame+1], np.linalg.norm(M[-1,:,:], axis=0), '-', lw=2, color=col, label=config['components'][c]['name'])
-    elif plotType == 'z':
-        for c in range(len(comps)):
-            col = colors['comps'][(c) % len(colors['comps'])]
-            ax.plot(config['clock'][:frame+1], M[c,2,:], '-', lw=2, color=col, label=config['components'][c]['name'])
+            ax.plot(config['clock'][:frame+1], M[c,2,:], '-', lw=2, color=col)
 
     return fig
 
@@ -500,10 +509,11 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False, useFFMPEG = Tru
             locs[x,y] = comps
 
     ### Animate ###
-    getText(config)
+    getText(config) # prepare text flashes for 3D plot 
     delay = int(100/fps*leapFactor)  # Delay between frames in ticks of 1/100 sec
     nFrames = len(locs[0,0][0][0][0])
-    if not config['outFile3D']+config['outFileMxy']+config['outFileMz']:
+    #if not config['outFile3D']+config['outFileMxy']+config['outFileMz']:
+    if 'output' not in config:
         raise Exception('No outfile (outFile3D/outFileMxy/outFileMz) was found in config')
     tmpdir = './tmp'
     outdir = './out'
@@ -513,20 +523,21 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False, useFFMPEG = Tru
             shutil.rmtree(tmpdir)
         else:
             raise Exception('No files written.')
-    for (plotType, outfile) in [('3D', config['outFile3D']), ('xy', config['outFileMxy']), ('z', config['outFileMz'])]:
-        if outfile:
+    #for (plotType, outfile) in [('3D', config['outFile3D']), ('xy', config['outFileMxy']), ('z', config['outFileMz'])]:
+    for output in config['output']:
+        if output['file']:
             os.makedirs(outdir, exist_ok=True)
-            outfile = os.path.join(outdir, outfile)
+            outfile = os.path.join(outdir, output['file'])
             if useFFMPEG:
                 ffmpegWriter = FFMPEGwriter.FFMPEGwriter(fps)
             else:
                 os.makedirs(tmpdir, exist_ok=True)
             for frame in range(0, nFrames, leapFactor):
                 # Use only every leapFactor frame in animation
-                if plotType == '3D':
+                if output['type'] == '3D':
                     fig = plotFrame3D(config, locs, frame)
                 else:
-                    fig = plotFrameMT(config, locs, frame, plotType)
+                    fig = plotFrameMT(config, locs, frame, output)
                 plt.draw()
                 if useFFMPEG:
                     ffmpegWriter.addFrame(fig)
