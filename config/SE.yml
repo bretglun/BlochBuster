@@ -1,4 +1,4 @@
-title: "Spin Echo"
+title: Spin Echo
 pulseSeq:
     - t: 0
       FA: 90
@@ -16,6 +16,6 @@ components:
 nIsochromats: 20
 isochromatStep: 0.01
 speed: 0.01
-outFile3D: "SE_3D.gif"
-outFileMxy: ""
-outFileMz: ""
+output: 
+  - type: 3D
+    file: SE_3D.gif

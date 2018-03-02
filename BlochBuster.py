@@ -234,8 +234,6 @@ def plotFrameMT(config, locs, frame, output):
         M[c,:,:] /= locs.size
     M[-1,:,:] = np.sum(M, 0)/nComps # put component sum as last component
 
-    print(frame, len(config['clock'][:frame+1]), np.linalg.norm(M[c,:2,:], axis=0).shape)
-
     if output['type'] == 'xy':
         for c in range(nComps+1):
             col = colors['comps'][c % len(colors['comps'])]
@@ -326,6 +324,7 @@ def derivs(M, t, Meq, w, w1, T1, T2):  # Bloch equations in rotating frame
 
 # Simulate magnetization vector during nTR applications of pulseSeq
 def applyPulseSeq(config, Meq, w, T1, T2, xpos=0, ypos=0, zpos=0):
+    #TODO: make instant RF-pulses work again
     # Initial state is equilibrium magnetization
     M = np.array([[0.], [0.], [Meq]])
     for rep in range(config['nTR']):
@@ -384,6 +383,7 @@ def simulateComponent(config, component, Meq, xpos=0, ypos=0, zpos=0):
 # Get clock during nTR applications of pulseSeq (clock stands still during excitation)
 # Get opacity and text for spoiler and RF text flashes in 3D plot
 def getText(config):
+    #TODO: make texts work with kernelClock (for multiple TR)
     framesSinceSpoil = [np.inf]
     framesSinceG = [np.inf]
     framesSinceRF = [np.inf]
@@ -570,6 +570,7 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False, useFFMPEG = Tru
     config['w0'] = 2*np.pi*gyro*config['B0']  # Larmor frequency [kRad/s]
     
     ### Format pulseSeq correctly ###
+    #TODO: check config, including checkPulseSeq
     checkPulseSeq(config)
     
     ### Arrange locations ###

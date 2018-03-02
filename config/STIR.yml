@@ -1,4 +1,4 @@
-title: "STIR"
+title: STIR
 pulseSeq:
   - t: 0
     FA: 180
@@ -12,21 +12,21 @@ nTR: 1
 B0: 1.5
 B1: 1.0
 components:
-  - name: "fluid"
+  - name: fluid
     CS: 0.0
     T1: 2400
     T2: 160
-  - name: "muscle"
+  - name: muscle
     CS: 0.0
     T1: 870
     T2: 47
-  - name: "fat"
+  - name: fat
     CS: 0.0
     T1: 260
     T2: 84 
 nIsochromats: 1
 isochromatStep: 0.01
 speed: 0.05
-outFile3D: "STIR_3D.gif"
-outFileMxy: ""
-outFileMz: ""
+output:
+  - type: 3D
+    file: STIR_3D.gif

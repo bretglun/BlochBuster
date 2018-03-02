@@ -21,10 +21,10 @@ nIsochromats: 1
 isochromatStep: 0.01
 speed: 0.005
 output:
-  - type: xy
-    abs: true
-    file: space_xy.gif
   - type: 3D
     file: space_3D.gif
   - type: psd
     file: space_psd.gif
+  - type: xy
+    abs: true
+    file: space_xy.gif

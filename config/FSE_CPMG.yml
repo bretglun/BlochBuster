@@ -1,4 +1,4 @@
-title: "FSE (CPMG)"
+title: FSE (CPMG)
 pulseSeq:
   - t: 0
     FA: 90
@@ -26,6 +26,6 @@ components:
 nIsochromats: 30
 isochromatStep: 0.02
 speed: 0.01
-outFile3D: "FSE_CPMG_3D.gif"
-outFileMxy: ""
-outFileMz: ""
+output:
+  - type: 3D
+    file: FSE_CPMG_3D.gif

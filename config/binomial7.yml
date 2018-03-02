@@ -1,4 +1,4 @@
-title: "Binomial-7"
+title: Binomial-7
 pulseSeq:
   - t: 0
     FA: 1.4
@@ -19,17 +19,17 @@ nTR: 1
 B0: 1.5 
 B1: 5.0 
 components:
-  - name: "water"
+  - name: water
     CS: 0.0
     T1: 1.0e+9
     T2: 1.0e+9
-  - name: "fat"
+  - name: fat
     CS: -3.40389262
     T1: 1.0e+9
     T2: 1.0e+9
 nIsochromats: 15
 isochromatStep: 0.03
 speed: 0.001
-outFile3D: "binomial7_3D.gif"
-outFileMxy: ""
-outFileMz: ""
+output:
+  - type: 3D
+    file: binomial7_3D.gif
