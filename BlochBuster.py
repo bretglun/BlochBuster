@@ -120,7 +120,7 @@ def plotFrame3D(config, locs, frame):
     fig.text(.5, 1, config['title'], fontsize=14, horizontalalignment='center', verticalalignment='top', color=colors['text'])
 
     # Draw time
-    time_text = fig.text(0, 0, 'time = %.1f msec' % (config['clock'][frame%len(config['clock'])]), color=colors['text'], verticalalignment='bottom')
+    time_text = fig.text(0, 0, 'time = %.1f msec' % (config['clock'][frame%(len(config['clock'])-1)]), color=colors['text'], verticalalignment='bottom')
 
     # Draw magnetization vectors
     for z in range(nz):
@@ -234,6 +234,8 @@ def plotFrameMT(config, locs, frame, output):
         M[c,:,:] /= locs.size
     M[-1,:,:] = np.sum(M, 0)/nComps # put component sum as last component
 
+    print(frame, len(config['clock'][:frame+1]), np.linalg.norm(M[c,:2,:], axis=0).shape)
+
     if output['type'] == 'xy':
         for c in range(nComps+1):
             col = colors['comps'][c % len(colors['comps'])]
@@ -253,8 +255,8 @@ def plotFrameMT(config, locs, frame, output):
     return fig
 
 def plotFramePSD(config, frame):
-    xmin, xmax = 0, config['clock'][-1]
-    ymin, ymax = 0, 6
+    xmin, xmax = 0, config['kernelClock'][-1]
+    ymin, ymax = 0, 5
     fig = plt.figure(figsize=(5, 5), facecolor=colors['bg'])
     ax = fig.gca(xlim=(xmin, xmax), ylim=(ymin, ymax), fc=colors['bg'])
     for side in ['bottom', 'right', 'top', 'left']:
@@ -287,8 +289,8 @@ def plotFramePSD(config, frame):
     ylim['Gx'] = ylim['Gy'] = ylim['Gz'] = 2.1*np.max(np.concatenate((Gxs, Gys, Gzs)))
     ypos = {board: y for board, y in [('B1',4), ('Gx',3), ('Gy',2), ('Gz',1)]}
     for event in config['pulseSeq']:
-        xpos = config['clock'][event['frame']]
-        w = config['clock'][event['frame']+event['nFrames']] - xpos
+        xpos = config['kernelClock'][event['frame']]
+        w = config['kernelClock'][event['frame']+event['nFrames']] - xpos
         for board in ['B1', 'Gx', 'Gy', 'Gz']:
             if board in event:
                 if event[board]=='inf':
@@ -300,7 +302,7 @@ def plotFramePSD(config, frame):
         ax.plot([xmin, xmax], [ypos[board], ypos[board]], color=colors['text'], lw=1, clip_on=False, zorder=100)
         ax.text(0, ypos[board], board, fontsize=14,
             color=colors['text'], horizontalalignment='right', verticalalignment='center')
-    ax.plot([config['clock'][frame%len(config['clock'])], config['clock'][frame%len(config['clock'])]], [0, 5], color=colors['text'], lw=1, clip_on=False, zorder=100)
+    ax.plot([config['kernelClock'][frame%(len(config['kernelClock'])-1)], config['kernelClock'][frame%(len(config['kernelClock'])-1)]], [0, 5], color=colors['text'], lw=1, clip_on=False, zorder=100)
     return fig
 
 
@@ -519,7 +521,11 @@ def checkPulseSeq(config):
     if np.round(T/dt)<0:
         raise Exception('Pulse sequence events not within TR')
     t = np.append(t[:-1], t[-1]+np.linspace(0, T, np.round(T/dt)+1, endpoint=True))
-    config['clock'] = t
+    config['kernelClock'] = t
+    config['clock'] = np.array([0])
+    for rep in range(config['nTR']):
+        config['clock'] = np.append(config['clock'][:-1], config['clock'][-1]+t)
+        print(len(config['clock']))
 
 
 def arrangeLocations(slices, nx ,ny, nz):
@@ -608,7 +614,6 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False, useFFMPEG = Tru
     getText(config) # prepare text flashes for 3D plot 
     delay = int(100/fps*leapFactor)  # Delay between frames in ticks of 1/100 sec
     nFrames = len(locs[0,0,0][0][0][0])-1 # don't plot end frame 
-    config['clock'] = config['clock'][:-1] # adjust clock
     
     if 'output' not in config:
         raise Exception('No outfile (outFile3D/outFileMxy/outFileMz) was found in config')

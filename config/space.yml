@@ -7,7 +7,7 @@ pulseSeq:
     Gx: 1
     dur: 20
 TR: 20
-nTR: 1
+nTR: 2
 B0: 1.5
 B1: 1
 components:
@@ -21,10 +21,10 @@ nIsochromats: 1
 isochromatStep: 0.01
 speed: 0.005
 output:
+  - type: xy
+    abs: true
+    file: space_xy.gif
   - type: 3D
     file: space_3D.gif
-  - type: xy
-    abs: false
-    file: space_xy.gif
   - type: psd
     file: space_psd.gif
