@@ -329,11 +329,11 @@ def applyPulseSeq(config, Meq, w, T1, T2, xpos=0, ypos=0, zpos=0):
     # Initial state is equilibrium magnetization
     M = np.array([[0.], [0.], [Meq]])
     for rep in range(config['nTR']):
-        lastFrame = 0
+        currentFrame = 0
         for event in config['pulseSeq']:
             # Relaxation up to event
-            T = config['clock'][event['frame']]-config['clock'][lastFrame]
-            t = np.linspace(0, T, event['frame']-lastFrame+1, endpoint=True)
+            T = config['kernelClock'][event['frame']]-config['kernelClock'][currentFrame]
+            t = np.linspace(0, T, event['frame']-currentFrame+1, endpoint=True)
             M1 = integrate.odeint(derivs, M[:, -1], t, args=(Meq, w, 0., T1, T2))
             M = np.concatenate((M, M1[1:].transpose()), axis=1)
 
@@ -360,11 +360,11 @@ def applyPulseSeq(config, Meq, w, T1, T2, xpos=0, ypos=0, zpos=0):
                     M1 = integrate.odeint(derivs, M[:, -1], t, args=(Meq, wg, w1, T1, T2))
                 M = np.concatenate((M, M1[1:].transpose()), axis=1)
     
-            lastFrame = event['frame']+event['nFrames']
+            currentFrame = event['frame']+event['nFrames']
 
         # Then relaxation until end of TR
-        T = config['clock'][-1]-config['clock'][lastFrame]
-        t = np.linspace(0, T, len(config['clock'])-lastFrame, endpoint=True)
+        T = config['kernelClock'][-1]-config['kernelClock'][currentFrame]
+        t = np.linspace(0, T, len(config['kernelClock'])-currentFrame, endpoint=True)
         M1 = integrate.odeint(derivs, M[:, -1], t, args=(Meq, w, 0., T1, T2))
         M = np.concatenate((M, M1[1:].transpose()), axis=1)
     return M
@@ -525,8 +525,6 @@ def checkPulseSeq(config):
     config['clock'] = np.array([0])
     for rep in range(config['nTR']):
         config['clock'] = np.append(config['clock'][:-1], config['clock'][-1]+t)
-        print(len(config['clock']))
-
 
 def arrangeLocations(slices, nx ,ny, nz):
     if not isinstance(slices, list):
