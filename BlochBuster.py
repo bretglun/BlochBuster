@@ -19,7 +19,7 @@ from mpl_toolkits.mplot3d import proj3d
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from matplotlib.patches import Circle
+from matplotlib.patches import Circle, Rectangle
 from matplotlib.patches import FancyArrowPatch
 import numpy as np
 import scipy.integrate as integrate
@@ -42,7 +42,13 @@ colors = {  'bg':       [1,1,1],
                         [.5,.3,.2],
                         [.5,.4,.1],
                         [.4,.1,.5],
-                        [.6,.1,.3]]}
+                        [.6,.1,.3]],
+            'boards': { 'B1': [128/256,0,0],
+                        'Gx': [0,128/256,0],
+                        'Gy': [0,128/256,0],
+                        'Gz': [0,128/256,0]
+                        }
+            }
 
 class Arrow3D(FancyArrowPatch):
     def __init__(self, xs, ys, zs, *args, **kwargs):
@@ -162,7 +168,7 @@ def plotFrame3D(config, locs, frame):
     
     return fig
 
-# TODO: plot type psd! (and possibly k-space)
+# TODO: plot type k-space
 
 
 # Creates an animated plot of magnetization over time output type='xy' for transversal and 'z' for longitudinal
@@ -244,6 +250,57 @@ def plotFrameMT(config, locs, frame, output):
             col = colors['comps'][(c) % len(colors['comps'])]
             ax.plot(config['clock'][:frame+1], M[c,2,:], '-', lw=2, color=col)
 
+    return fig
+
+def plotFramePSD(config, frame):
+    xmin, xmax = 0, config['clock'][-1]
+    ymin, ymax = 0, 6
+    fig = plt.figure(figsize=(5, 5), facecolor=colors['bg'])
+    ax = fig.gca(xlim=(xmin, xmax), ylim=(ymin, ymax), fc=colors['bg'])
+    for side in ['bottom', 'right', 'top', 'left']:
+        ax.spines[side].set_visible(False)  # remove default axes
+    plt.title(config['title'], color=colors['text'])
+    plt.xlabel('time[ms]', horizontalalignment='right', color=colors['text'])
+    #ax.xaxis.set_label_coords(1.1, .1)
+    #plt.ylabel('$|M_{xy}|$', rotation=0, color=colors['text'])
+    plt.tick_params(axis='y', labelleft='off')
+    plt.tick_params(axis='x', colors=colors['text'])
+    ax.xaxis.set_ticks_position('none')  # tick markers
+    ax.yaxis.set_ticks_position('none')
+
+    # draw x and y axes as arrows
+    bbox = ax.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
+    width, height = bbox.width, bbox.height  # get width and height of axes object
+    hw = 1/25*(ymax-ymin)  # manual arrowhead width and length
+    hl = 1/25*(xmax-xmin)
+    yhw = hw/(ymax-ymin)*(xmax-xmin) * height/width  # compute matching arrowhead length and width
+    yhl = hl/(xmax-xmin)*(ymax-ymin) * width/height
+    ax.arrow(xmin, 0, (xmax-xmin)*1.05, 0, fc=colors['text'], ec=colors['text'], lw=1, head_width=hw, head_length=hl, clip_on=False, zorder=100)
+    
+    ylim = {}
+    B1s = [event['B1'] for event in config['pulseSeq'] if 'B1' in event and event['B1']!='inf']
+    if len(B1s)>0:
+        ylim['B1'] = 2.1*np.max(B1s)
+    Gxs = [np.abs(event['Gx']) for event in config['pulseSeq'] if 'Gx' in event]
+    Gys = [np.abs(event['Gy']) for event in config['pulseSeq'] if 'Gy' in event]
+    Gzs = [np.abs(event['Gz']) for event in config['pulseSeq'] if 'Gz' in event]
+    ylim['Gx'] = ylim['Gy'] = ylim['Gz'] = 2.1*np.max(np.concatenate((Gxs, Gys, Gzs)))
+    ypos = {board: y for board, y in [('B1',4), ('Gx',3), ('Gy',2), ('Gz',1)]}
+    for event in config['pulseSeq']:
+        xpos = config['clock'][event['frame']]
+        w = config['clock'][event['frame']+event['nFrames']] - xpos
+        for board in ['B1', 'Gx', 'Gy', 'Gz']:
+            if board in event:
+                if event[board]=='inf':
+                    h = 1/2.1
+                else:
+                    h = .9*event[board]/ylim[board]
+                ax.add_patch(Rectangle((xpos, ypos[board]), w, h, lw=1, facecolor=colors['boards'][board], edgecolor=colors['text']))
+    for board in ['B1', 'Gx', 'Gy', 'Gz']:
+        ax.plot([xmin, xmax], [ypos[board], ypos[board]], color=colors['text'], lw=1, clip_on=False, zorder=100)
+        ax.text(0, ypos[board], board, fontsize=14,
+            color=colors['text'], horizontalalignment='right', verticalalignment='center')
+    ax.plot([config['clock'][frame%len(config['clock'])], config['clock'][frame%len(config['clock'])]], [0, 5], color=colors['text'], lw=1, clip_on=False, zorder=100)
     return fig
 
 
@@ -424,6 +481,11 @@ def checkPulseSeq(config):
                     if 'dur' in event:
                         raise Exception('Cannot combine given dur with "infinite" B1 pulse')
                     event['dur'] = 0
+            else:
+                if event['dur']==0:
+                    event['B1'] = 'inf'
+                else:
+                    event['B1'] = abs(event['FA'])/(event['dur']*360*gyro*1e-6)
             if 'dur' not in event:
                 event['dur'] = abs(event['FA'])/(360*gyro*event['B1']*1e-6) # RF pulse duration
             if 'FA' not in event:
@@ -545,8 +607,9 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False, useFFMPEG = Tru
     ### Animate ###
     getText(config) # prepare text flashes for 3D plot 
     delay = int(100/fps*leapFactor)  # Delay between frames in ticks of 1/100 sec
-    nFrames = len(locs[0,0,0][0][0][0])
-    #if not config['outFile3D']+config['outFileMxy']+config['outFileMz']:
+    nFrames = len(locs[0,0,0][0][0][0])-1 # don't plot end frame 
+    config['clock'] = config['clock'][:-1] # adjust clock
+    
     if 'output' not in config:
         raise Exception('No outfile (outFile3D/outFileMxy/outFileMz) was found in config')
     tmpdir = './tmp'
@@ -557,7 +620,6 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False, useFFMPEG = Tru
             shutil.rmtree(tmpdir)
         else:
             raise Exception('No files written.')
-    #for (plotType, outfile) in [('3D', config['outFile3D']), ('xy', config['outFileMxy']), ('z', config['outFileMz'])]:
     for output in config['output']:
         if output['file']:
             os.makedirs(outdir, exist_ok=True)
@@ -570,6 +632,8 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False, useFFMPEG = Tru
                 # Use only every leapFactor frame in animation
                 if output['type'] == '3D':
                     fig = plotFrame3D(config, locs, frame)
+                elif output['type'] == 'psd':
+                    fig = plotFramePSD(config, frame)
                 else:
                     fig = plotFrameMT(config, locs, frame, output)
                 plt.draw()
