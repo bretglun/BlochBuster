@@ -1,4 +1,4 @@
-title: "STIR"
+title: STIR
 pulseSeq:
   - t: 0
     FA: 180
@@ -7,36 +7,54 @@ pulseSeq:
   - t: 190
     FA: 180
     phase: 180
-TR: 800
+TR: 1000
 nTR: 1
 B0: 1.5
 B1: 1.0
 components:
-  - name: "fluid"
+  - name: fluid
     CS: 0.0
     T1: 2400
     T2: 160  
-  - name: "muscle"
+  - name: muscle
     CS: 0.0
     T1: 870
     T2: 47
-  - name: "fat"
+  - name: fat
     CS: 0.0
     T1: 260
     T2: 84
 locations:
   fluid:
-    [[1, 1, 1],
-     [0, 0, 0]]
+   [[0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 1, 1, 1, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0]]
   muscle:
-    [[0, 0, 0],
-     [0, 1, 0]]
+   [[0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 1, 1, 1, 0, 0],
+    [0, 1, 0, 0, 0, 1, 0],
+    [0, 1, 1, 1, 1, 1, 0],
+    [0, 1, 1, 1, 1, 1, 0],
+    [0, 0, 1, 1, 1, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0]]
   fat:
-    [[0, 0, 0],
-     [1, 0, 1]]
+   [[0, 0, 1, 1, 1, 0, 0],
+    [0, 1, 0, 0, 0, 1, 0],
+    [1, 0, 0, 0, 0, 0, 1],
+    [1, 0, 0, 0, 0, 0, 1],
+    [1, 0, 0, 0, 0, 0, 1],
+    [0, 1, 0, 0, 0, 1, 0],
+    [0, 0, 1, 1, 1, 0, 0]]
 nIsochromats: 1
 isochromatStep: 0.01
-speed: 0.3
-outFile3D: "STIR_space_3D.gif"
-outFileMxy: ""
-outFileMz: ""
+speed: 0.1
+output:
+  - type: 3D
+    file: STIR_space_3D.gif
+  - type: xy
+    abs: true
+    file: STIR_space_xy.gif

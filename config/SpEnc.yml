@@ -1,0 +1,46 @@
+title: Spatial Excitation
+pulseSeq:
+  - t: 0
+    FA: 90
+    dur: 1
+  - t: 1
+    Gy: 1
+    dur: 1
+  - t: 2
+    Gx: -1
+    dur: 2
+  - t: 4
+    Gx: 1
+    dur: 4
+TR: 10
+nTR: 1
+B0: 1.5
+B1: 1
+components:
+  - name: ""
+    CS: 0.0
+    T1: 200.
+    T2: 80.
+locations:
+  [[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+   [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+   [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+   [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+   [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+   [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+   [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+   [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+   [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+   [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+   [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]]
+nIsochromats: 1
+isochromatStep: 0.01
+speed: 0.001
+output:
+  - type: 3D
+    file: SpEnc_3D.gif
+  - type: psd
+    file: SpEnc_psd.gif
+  - type: xy
+    abs: false
+    file: SpEnc_xy.gif
