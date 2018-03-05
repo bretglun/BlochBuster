@@ -324,7 +324,6 @@ def derivs(M, t, Meq, w, w1, T1, T2):  # Bloch equations in rotating frame
 
 # Simulate magnetization vector during nTR applications of pulseSeq
 def applyPulseSeq(config, Meq, w, T1, T2, xpos=0, ypos=0, zpos=0):
-    #TODO: make instant RF-pulses work again
     # Initial state is equilibrium magnetization
     M = np.array([[0.], [0.], [Meq]])
     for rep in range(config['nTR']):
