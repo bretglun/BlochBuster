@@ -382,7 +382,6 @@ def simulateComponent(config, component, Meq, xpos=0, ypos=0, zpos=0):
 # Get clock during nTR applications of pulseSeq (clock stands still during excitation)
 # Get opacity and text for spoiler and RF text flashes in 3D plot
 def getText(config):
-    #TODO: make texts work with kernelClock (for multiple TR)
     framesSinceSpoil = [np.inf]
     framesSinceG = [np.inf]
     framesSinceRF = [np.inf]
@@ -429,7 +428,7 @@ def getText(config):
             lastFrame = event['frame'] + event['nFrames']
 
         # Frames during relaxation until end of TR
-        nFrames = len(config['clock'])-lastFrame
+        nFrames = len(config['kernelClock'])-lastFrame
         count = np.linspace(0, nFrames, nFrames+1, endpoint=True)
         framesSinceSpoil.extend(framesSinceSpoil[-1] + count[1:])
         framesSinceG.extend(framesSinceG[-1] + count[1:])
