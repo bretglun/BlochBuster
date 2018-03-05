@@ -32,6 +32,8 @@ output:
     file: SpEnc_3D.gif
   - type: psd
     file: SpEnc_psd.gif
+  - type: kspace
+    file: SpEnc_kspace.gif
   - type: xy
     abs: false
     file: SpEnc_xy.gif

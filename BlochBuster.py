@@ -34,8 +34,8 @@ colors = {  'bg':       [1,1,1],
             'circle':   [0,0,0,.03],
             'axis':     [.5,.5,.5],
             'text':     [.05,.05,.05], 
-            'spoilText':[128/256,0,0],
-            'RFtext':   [0,128/256,0],
+            'spoilText':[.5,0,0],
+            'RFtext':   [0,.5,0],
             'Gtext':    [80/256,80/256,0],
             'comps': [  [.3,.5,.2],
                         [.1,.4,.5],
@@ -43,11 +43,12 @@ colors = {  'bg':       [1,1,1],
                         [.5,.4,.1],
                         [.4,.1,.5],
                         [.6,.1,.3]],
-            'boards': { 'B1': [128/256,0,0],
-                        'Gx': [0,128/256,0],
-                        'Gy': [0,128/256,0],
-                        'Gz': [0,128/256,0]
-                        }
+            'boards': { 'B1': [.5,0,0],
+                        'Gx': [0,.5,0],
+                        'Gy': [0,.5,0],
+                        'Gz': [0,.5,0]
+                        },
+            'kSpacePos': [1, .5, 0]
             }
 
 class Arrow3D(FancyArrowPatch):
@@ -251,6 +252,41 @@ def plotFrameMT(config, locs, frame, output):
             ax.plot(config['clock'][:frame+1], M[c,2,:], '-', lw=2, color=col)
 
     return fig
+
+
+def plotFrameKspace(config, frame):
+    kmax = 1/(2*config['locSpacing'])
+    xmin, xmax = -kmax, kmax
+    ymin, ymax = -kmax, kmax
+    fig = plt.figure(figsize=(5, 5), facecolor=colors['bg'])
+    ax = fig.gca(xlim=(xmin, xmax), ylim=(ymin, ymax), fc=colors['bg'])
+    for side in ['bottom', 'right', 'top', 'left']:
+        ax.spines[side].set_color(colors['text'])
+    ax.grid()
+    plt.title(config['title'], color=colors['text'])
+    plt.xlabel('$k_x$ [m$^{-1}$]', horizontalalignment='right', color=colors['text'])
+    plt.ylabel('$k_y$ [m$^{-1}$]', rotation=0, color=colors['text'])
+    plt.tick_params(axis='y', colors=colors['text'])
+    plt.tick_params(axis='x', colors=colors['text'])
+
+    kx, ky, kz = 0, 0, 0
+    for event in config['pulseSeq']:
+        if event['frame']<frame:
+            if any([key in event for key in ['Gx', 'Gy', 'Gz']]):
+                dur = config['dt']*(min(event['frame']+event['nFrames'], frame)-event['frame'])
+                if 'Gx' in event:
+                    kx += gyro*event['Gx']*dur/1000
+                if 'Gy' in event:
+                    ky += gyro*event['Gy']*dur/1000
+                if 'Gz' in event:
+                    kz += gyro*event['Gz']*dur/1000
+            elif 'spoil' in event and event['spoil']:
+                kx, ky, kz = 0, 0, 0
+        else: 
+            break
+    ax.plot(kx, ky, '.', markersize=10, color=colors['kSpacePos'])
+    return fig
+
 
 def plotFramePSD(config, frame):
     xmin, xmax = 0, config['kernelClock'][-1]
@@ -569,6 +605,9 @@ def checkConfig(config):
         for (key, default) in [('name', ''), ('CS', 0), ('T1', np.inf), ('T2', np.inf)]:
             if key not in comp:
                 comp[key] = default
+    if 'locSpacing' not in config:
+        config['locSpacing'] = 0.001      # distance between locations [m]
+
     if 'fps' not in config:
         config['fps'] = 15 # Frames per second in animation (<=15 should be supported by powepoint)
     
@@ -579,7 +618,6 @@ def checkConfig(config):
     checkPulseSeq(config)
 
     ### Arrange locations ###
-    config['locSpacing'] = 0.001      # distance between locations [m]
     if not 'locations' in config:
         config['locations'] = arrangeLocations([[[1]]], config)
     else:
@@ -589,6 +627,9 @@ def checkConfig(config):
                 config['locations'][comp] = arrangeLocations(config['locations'][comp], config)
         else:
             config['locations'] = arrangeLocations(config['locations'], config)
+    for (FOV, n) in [('FOVx', 'nx'), ('FOVy', 'ny'), ('FOVz', 'nz')]:
+        if FOV not in config:
+            config[FOV] = config[n]*config['locSpacing'] #FOV in m
 
 
 # Main program
@@ -637,8 +678,6 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False, useFFMPEG = Tru
     delay = int(100/config['fps']*leapFactor)  # Delay between frames in ticks of 1/100 sec
     nFrames = len(locs[0,0,0][0][0][0])-1 # don't plot end frame 
     
-    if 'output' not in config:
-        raise Exception('No outfile (outFile3D/outFileMxy/outFileMz) was found in config')
     tmpdir = './tmp'
     outdir = './out'
     if os.path.isdir(tmpdir):
@@ -659,6 +698,8 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False, useFFMPEG = Tru
                 # Use only every leapFactor frame in animation
                 if output['type'] == '3D':
                     fig = plotFrame3D(config, locs, frame)
+                elif output['type'] == 'kspace':
+                    fig = plotFrameKspace(config, frame)
                 elif output['type'] == 'psd':
                     fig = plotFramePSD(config, frame)
                 else:
