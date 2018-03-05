@@ -340,7 +340,7 @@ def applyPulseSeq(config, Meq, w, T1, T2, xpos=0, ypos=0, zpos=0):
                 w1 = event['w1']
             else:
                 w1 = 0
-            t = np.linspace(0, event['nFrames']*dt, event['nFrames']+1, endpoint=True)
+            t = np.linspace(0, event['nFrames']*config['dt'], event['nFrames']+1, endpoint=True)
 
             if 'spoil' in event and event['spoil']: # Spoiler event
                 M[:, -1] = spoil(M[:, -1])
@@ -350,11 +350,11 @@ def applyPulseSeq(config, Meq, w, T1, T2, xpos=0, ypos=0, zpos=0):
                 else: # RF-pulse and/or gradient event
                     if any(key in event for key in ['Gx', 'Gy', 'Gz']): # Gradient present
                         if 'Gx' in event:
-                            wg += 2*np.pi*gyro*event['Gx']/1000*(xpos*locSpacing) # [krad/s]
+                            wg += 2*np.pi*gyro*event['Gx']*xpos/1000 # [krad/s]
                         if 'Gy' in event:
-                            wg += 2*np.pi*gyro*event['Gy']/1000*(ypos*locSpacing) # [krad/s]
+                            wg += 2*np.pi*gyro*event['Gy']*ypos/1000 # [krad/s]
                         if 'Gz' in event:
-                            wg += 2*np.pi*gyro*event['Gz']/1000*(zpos*locSpacing) # [krad/s]
+                            wg += 2*np.pi*gyro*event['Gz']*zpos/1000 # [krad/s]
                     M1 = integrate.odeint(derivs, M[:, -1], t, args=(Meq, wg, w1, T1, T2))
                 M = np.concatenate((M, M1[1:].transpose()), axis=1)
     
@@ -437,12 +437,13 @@ def getText(config):
         config['Gtext'] += [config['Gtext'][-1]]*nFrames
             
     # Calculate alphas (one second fade)
-    config['spoilAlpha'] = [max(1.0-frames/fps, 0) for frames in framesSinceSpoil]
-    config['Galpha'] = [max(1.0-frames/fps, 0) for frames in framesSinceG]
-    config['RFalpha'] = [max(1.0-frames/fps, 0) for frames in framesSinceRF]
+    config['spoilAlpha'] = [max(1.0-frames/config['fps'], 0) for frames in framesSinceSpoil]
+    config['Galpha'] = [max(1.0-frames/config['fps'], 0) for frames in framesSinceG]
+    config['RFalpha'] = [max(1.0-frames/config['fps'], 0) for frames in framesSinceRF]
 
 
 def checkPulseSeq(config):
+    dt = config['dt']
     allowedKeys = ['t', 'spoil', 'dur', 'FA', 'B1', 'phase', 'Gx', 'Gy', 'Gz']
     for event in config['pulseSeq']:
         for item in event.keys(): # allowed keys
@@ -493,7 +494,7 @@ def checkPulseSeq(config):
             if event['dur']>0:
                 event['nFrames'] = int(max(np.round(event['dur']/dt), 1))
             else:
-                event['nFrames'] = int(np.round(abs(event['FA'])*fps/90)) # one sec per 90 flip
+                event['nFrames'] = int(np.round(abs(event['FA'])*config['fps']/90)) # one sec per 90 flip
             if 'phase' in event: # Set complex flip angles
                 event['FA'] = event['FA']*np.exp(1j*radians(event['phase']))
             event['w1'] = radians(event['FA'])/(event['nFrames']*dt)
@@ -546,33 +547,18 @@ def arrangeLocations(slices, nx ,ny, nz):
     return slices
 
 
-# Main program
-def BlochBuster(configFile, leapFactor=1, blackBackground=False, useFFMPEG = True):
-    # Set global constants
-    global gyro, dt, fps, locSpacing
-    
-    if blackBackground:
-        for i in ['bg', 'axis', 'text', 'circle']:
-            colors[i][:3] = list(map(lambda x: 1-x, colors[i][:3]))
-    # Read configuration file
-    with open(configFile, 'r') as f:
-        try:
-            config = yaml.load(f)
-        except yaml.YAMLError as exc:
-            raise Exception('Error reading config file') from exc
-    
-    ### Calculations ###
-    gyro = 42577.			# Gyromagnetic ratio [kHz/T]
-    fps = 15				# Frames per second in animation (<=15 should be supported by powepoint)
-    dt = 1e3/fps*config['speed'] 	# Time resolution [msec]
-    config['w0'] = 2*np.pi*gyro*config['B0']  # Larmor frequency [kRad/s]
-    
-    ### Format pulseSeq correctly ###
+
+def checkConfig(config):
+    if not 'fps' in config:
+        config['fps'] = 15 # Frames per second in animation (<=15 should be supported by powepoint)
+    config['dt'] = 1e3/config['fps']*config['speed'] # Time resolution [msec]
+    config['w0'] = 2*np.pi*gyro*config['B0'] # Larmor frequency [kRad/s]
+
     #TODO: check config, including checkPulseSeq
     checkPulseSeq(config)
-    
+
     ### Arrange locations ###
-    locSpacing = 0.001      # distance between locations [m]
+    config['locSpacing'] = 0.001      # distance between locations [m]
     if not 'locations' in config:
         config['locations'] = [[[1]]]
         nx = ny = nz = [1]
@@ -583,13 +569,33 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False, useFFMPEG = Tru
                 config['locations'][comp] = arrangeLocations(config['locations'][comp], nx ,ny, nz)
         else:
             config['locations'] = arrangeLocations(config['locations'], nx ,ny, nz)
-    nx, ny, nz = nx[0], ny[0], nz[0]
+    config['nx'], config['ny'], config['nz'] = nx[0], ny[0], nz[0]
+
+
+# Main program
+def BlochBuster(configFile, leapFactor=1, blackBackground=False, useFFMPEG = True):
+    # Set global constants
+    global gyro
+    gyro = 42577.			# Gyromagnetic ratio [kHz/T]
+
+    if blackBackground:
+        for i in ['bg', 'axis', 'text', 'circle']:
+            colors[i][:3] = list(map(lambda x: 1-x, colors[i][:3]))
+    # Read configuration file
+    with open(configFile, 'r') as f:
+        try:
+            config = yaml.load(f)
+        except yaml.YAMLError as exc:
+            raise Exception('Error reading config file') from exc
+    
+    ### Setup config correctly ###
+    checkConfig(config)
 
     ### Simulate ###
-    locs = np.empty((nx,ny,nz), dtype=list)
-    for z in range(nz):
-        for y in range(ny):
-            for x in range(nx):
+    locs = np.empty((config['nx'],config['ny'],config['nz']), dtype=list)
+    for z in range(config['nz']):
+        for y in range(config['ny']):
+            for x in range(config['nx']):
                 comps = []
                 for component in config['components']:
                     if component['name'] in config['locations']:
@@ -601,15 +607,15 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False, useFFMPEG = Tru
                         Meq = config['locations'][z][y][x]
                     else:
                         continue
-                    xpos = x+.5-nx/2
-                    ypos = y+.5-ny/2
-                    zpos = z+.5-nz/2
+                    xpos = (x+.5-config['nx']/2)*config['locSpacing']
+                    ypos = (y+.5-config['ny']/2)*config['locSpacing']
+                    zpos = (z+.5-config['nz']/2)*config['locSpacing']
                     comps.append(simulateComponent(config, component, Meq, xpos, ypos, zpos))
                 locs[x,y,z] = comps
 
     ### Animate ###
     getText(config) # prepare text flashes for 3D plot 
-    delay = int(100/fps*leapFactor)  # Delay between frames in ticks of 1/100 sec
+    delay = int(100/config['fps']*leapFactor)  # Delay between frames in ticks of 1/100 sec
     nFrames = len(locs[0,0,0][0][0][0])-1 # don't plot end frame 
     
     if 'output' not in config:
@@ -627,7 +633,7 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False, useFFMPEG = Tru
             os.makedirs(outdir, exist_ok=True)
             outfile = os.path.join(outdir, output['file'])
             if useFFMPEG:
-                ffmpegWriter = FFMPEGwriter.FFMPEGwriter(fps)
+                ffmpegWriter = FFMPEGwriter.FFMPEGwriter(config['fps'])
             else:
                 os.makedirs(tmpdir, exist_ok=True)
             for frame in range(0, nFrames, leapFactor):
