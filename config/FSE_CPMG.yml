@@ -15,14 +15,8 @@ pulseSeq:
     FA: 180
     phase: 90
 TR: 130
-nTR: 1
 B0: 1.5
-B1: 100
-components:
-  - name: ""
-    CS: 0.0
-    T1: 1.0e+9
-    T2: 100
+B1: inf
 nIsochromats: 30
 isochromatStep: 0.02
 speed: 0.01

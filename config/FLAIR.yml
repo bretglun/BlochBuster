@@ -7,9 +7,8 @@ pulseSeq:
   - t: 1710
     FA: 180
 TR: 2700
-nTR: 1
 B0: 1.5
-B1: 100
+B1: inf
 components:
   - name: CSF
     CS: 0.0
@@ -23,8 +22,6 @@ components:
     CS: 0.0
     T1: 920
     T2: 101
-nIsochromats: 1
-isochromatStep: 0.01
 speed: 0.1
 output:
   - type: 3D

@@ -9,12 +9,8 @@ nTR: 15
 B0: 1.5
 B1: 1.0
 components:
-  - name: ""
-    CS: 0.0
-    T1: 60.0
+  - T1: 60.0
     T2: 55.0
-nIsochromats: 1
-isochromatStep: 0.01
 speed: 0.005
 output:
   - type: 3D

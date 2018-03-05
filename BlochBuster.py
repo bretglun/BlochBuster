@@ -382,6 +382,7 @@ def simulateComponent(config, component, Meq, xpos=0, ypos=0, zpos=0):
 # Get clock during nTR applications of pulseSeq (clock stands still during excitation)
 # Get opacity and text for spoiler and RF text flashes in 3D plot
 def getText(config):
+    #TODO: fix lag for multiple TR (see SPGR.yml)
     framesSinceSpoil = [np.inf]
     framesSinceG = [np.inf]
     framesSinceRF = [np.inf]
@@ -525,51 +526,69 @@ def checkPulseSeq(config):
     for rep in range(config['nTR']):
         config['clock'] = np.append(config['clock'][:-1], config['clock'][-1]+t)
 
-def arrangeLocations(slices, nx ,ny, nz):
+def arrangeLocations(slices, config):
     if not isinstance(slices, list):
         raise Exception('Did not expect {} in config "locations"'.format(type(slices)))
     if not isinstance(slices[0], list):
         slices = [slices]
     if not isinstance(slices[0][0], list):
         slices = [slices]
-    if len(nz)==0:
-        nz.append(len(slices))
-    elif len(slices)!=nz[0]:
+    if 'nz' not in config:
+        config['nz'] = len(slices)
+    elif len(slices)!=config['nz']:
         raise Exception('Config "locations": number of slices do not match')
-    if len(ny)==0:
-        ny.append(len(slices[0]))
-    elif len(slices[0])!=ny[0]:
+    if 'ny' not in config:
+        config['ny'] = len(slices[0])
+    elif len(slices[0])!=config['ny']:
         raise Exception('Config "locations": number of rows do not match')
-    if len(nx)==0:
-        nx.append(len(slices[0][0]))
-    elif  len(slices[0][0])!=nx[0]:
+    if 'nx' not in config:
+        config['nx'] = len(slices[0][0])
+    elif  len(slices[0][0])!=config['nx']:
         raise Exception('Config "locations": number of elements do not match')
     return slices
 
 
 
 def checkConfig(config):
-    if not 'fps' in config:
+    if any([key not in config for key in ['pulseSeq', 'TR', 'B0', 'speed', 'output']]):
+        raise Exception('Config must contain "pulseSeq", "TR", "B0", "speed", and "output"')
+    if 'title' not in config:
+        config['title'] = ''
+    if 'nTR' not in config:
+        config['nTR'] = 1
+    if 'nIsochromats' not in config:
+        config['nIsochromats'] = 1
+    if 'isochromatStep' not in config:
+        if config['nIsochromats']>1:
+            raise Exception('Please specify "isochromatStep" [ppm] in config')
+        else:
+            config['isochromatStep']=0
+    if 'components' not in config:
+        config['components'] = [{}]
+    for comp in config['components']:
+        for (key, default) in [('name', ''), ('CS', 0), ('T1', np.inf), ('T2', np.inf)]:
+            if key not in comp:
+                comp[key] = default
+    if 'fps' not in config:
         config['fps'] = 15 # Frames per second in animation (<=15 should be supported by powepoint)
+    
+    # calculations
     config['dt'] = 1e3/config['fps']*config['speed'] # Time resolution [msec]
     config['w0'] = 2*np.pi*gyro*config['B0'] # Larmor frequency [kRad/s]
 
-    #TODO: check config, including checkPulseSeq
     checkPulseSeq(config)
 
     ### Arrange locations ###
     config['locSpacing'] = 0.001      # distance between locations [m]
     if not 'locations' in config:
-        config['locations'] = [[[1]]]
-        nx = ny = nz = [1]
+        config['locations'] = arrangeLocations([[[1]]], config)
     else:
         nx, ny, nz = [], [], []
         if isinstance(config['locations'], dict):
             for comp in iter(config['locations']):
-                config['locations'][comp] = arrangeLocations(config['locations'][comp], nx ,ny, nz)
+                config['locations'][comp] = arrangeLocations(config['locations'][comp], config)
         else:
-            config['locations'] = arrangeLocations(config['locations'], nx ,ny, nz)
-    config['nx'], config['ny'], config['nz'] = nx[0], ny[0], nz[0]
+            config['locations'] = arrangeLocations(config['locations'], config)
 
 
 # Main program
