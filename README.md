@@ -43,9 +43,10 @@ The animation speed is determined by the "speed" field, where 1 corresponds to r
 
 The output is specified by a list, where the "type" can be:
 - 3D: animated 3D plot of the magnetization vectors
+- kspace: animated plot of kspace position
+- psd: events plotted as a pulse sequence diagram
 - xy: animated plot of transverse magnetization over time. If "abs: false", both real and imaginary components are plotted.
 - z: animated plot of transverse magnetization over time
-- psd: events plotted as a pulse sequence diagram
 The filename is specified by "file". The file ending can be .gif or .mp4.
 
 HOW TO USE

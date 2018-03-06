@@ -255,6 +255,7 @@ def plotFrameMT(config, locs, frame, output):
 
 
 def plotFrameKspace(config, frame):
+    #TODO: support for 3D k-space
     kmax = 1/(2*config['locSpacing'])
     xmin, xmax = -kmax, kmax
     ymin, ymax = -kmax, kmax
