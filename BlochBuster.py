@@ -65,7 +65,7 @@ class Arrow3D(FancyArrowPatch):
 
 # Creates an animated plot of magnetization in a 3D view
 def plotFrame3D(config, vectors, frame):
-    nx, ny, nz, nComps, nIsoc = vectors.shape
+    nx, ny, nz, nComps, nIsoc = vectors.shape[:5]
     xpos = np.arange(nx)-nx/2+.5
     ypos = -(np.arange(ny)-ny/2+.5)
     zpos = -(np.arange(nz)-nz/2+.5)
@@ -132,7 +132,7 @@ def plotFrame3D(config, vectors, frame):
                 for c in range(nComps):
                     for m in range(nIsoc):
                         col = colors['comps'][(c) % len(colors['comps'])]
-                        M = vectors[x,y,z,c,m][:,frame]
+                        M = vectors[x,y,z,c,m,:,frame]
                         Mnorm = np.linalg.norm(M)
                         alpha = 1.-2*np.abs((m+.5)/nIsoc-.5)
                         if Mnorm>.05:
@@ -170,11 +170,9 @@ def plotFrame3D(config, vectors, frame):
 
 
 # Creates an animated plot of magnetization over time output type='xy' for transversal and 'z' for longitudinal
-def plotFrameMT(config, locs, vectors, frame, output):
+def plotFrameMT(config, signal, frame, output):
     if output['type'] not in ['xy', 'z']:
         raise Exception('output "type" must be 3D, kspace, psd, xy (transversal) or z (longitudinal)')
-
-    nx, ny, nz, nComps, nIsoc = vectors.shape
 
     # create diagram
     xmin, xmax = 0, config['clock'][-1]
@@ -219,33 +217,30 @@ def plotFrameMT(config, locs, vectors, frame, output):
     ax.arrow(0, ymin, 0, (ymax-ymin)*1.05, fc=colors['text'], ec=colors['text'], lw=1, head_width=yhw, head_length=yhl, clip_on=False, zorder=100)
     
     # Draw magnetization vectors
-    M = np.zeros([nComps+1, 3, frame+1])
-    for c in range(nComps):
-        # TODO: use sum function
-        for z in range(nz):
-            for y in range(ny):
-                for x in range(nx):
-                    for m in range(nIsoc):
-                        M[c,:,:] += locs[x,y,z][c][m][:, :frame+1]
-        M[c,:,:] /= nIsoc
-        M[c,:,:] /= locs.size
-    M[-1,:,:] = np.sum(M, 0)/nComps # put component sum as last component
-
+    nComps = signal.shape[0]
     if output['type'] == 'xy':
-        for c in range(nComps+1):
+        for c in range(nComps):
             col = colors['comps'][c % len(colors['comps'])]
-            # only plot sum component if both water and fat (special case)
-            if c<nComps or all(key in [comp['name'] for comp in config['components']] for key in ['water', 'fat']):
-                if 'abs' in output and not output['abs']: # real and imag part of transversal magnetization
-                    ax.plot(config['clock'][:frame+1], M[c,0,:], '-', lw=2, color=col)
-                    col = colors['comps'][c+nComps % len(colors['comps'])]
-                    ax.plot(config['clock'][:frame+1], M[c,1,:], '-', lw=2, color=col)
-                else: # absolute value of transversal magnetization
-                    ax.plot(config['clock'][:frame+1], np.linalg.norm(M[c,:2,:], axis=0), '-', lw=2, color=col)
+            if 'abs' in output and not output['abs']: # real and imag part of transversal magnetization
+                ax.plot(config['clock'][:frame+1], signal[c,0,:frame+1], '-', lw=2, color=col)
+                col = colors['comps'][c+nComps+1 % len(colors['comps'])]
+                ax.plot(config['clock'][:frame+1], signal[c,1,:frame+1], '-', lw=2, color=col)
+            else: # absolute value of transversal magnetization
+                ax.plot(config['clock'][:frame+1], np.linalg.norm(signal[c,:2,:frame+1], axis=0), '-', lw=2, color=col)
+        # plot sum component if both water and fat (special case)
+        if all(key in [comp['name'] for comp in config['components']] for key in ['water', 'fat']):
+            col = colors['comps'][nComps % len(colors['comps'])]
+            if 'abs' in output and not output['abs']: # real and imag part of transversal magnetization
+                ax.plot(config['clock'][:frame+1], np.mean(signal[:,0,:frame+1],0), '-', lw=2, color=col)
+                col = colors['comps'][2*nComps+1 % len(colors['comps'])]
+                ax.plot(config['clock'][:frame+1], np.mean(signal[:,1,:frame+1],0), '-', lw=2, color=col)
+            else: # absolute value of transversal magnetization
+                ax.plot(config['clock'][:frame+1], np.linalg.norm(np.mean(signal[:,:2,:frame+1],0), axis=0), '-', lw=2, color=col)
+
     elif output['type'] == 'z':
         for c in range(nComps):
             col = colors['comps'][(c) % len(colors['comps'])]
-            ax.plot(config['clock'][:frame+1], M[c,2,:], '-', lw=2, color=col)
+            ax.plot(config['clock'][:frame+1], signal[c,2,:frame+1], '-', lw=2, color=col)
 
     return fig
 
@@ -359,6 +354,7 @@ def derivs(M, t, Meq, w, w1, T1, T2):  # Bloch equations in rotating frame
 def applyPulseSeq(config, Meq, w, T1, T2, xpos=0, ypos=0, zpos=0):
     # Initial state is equilibrium magnetization
     M = np.array([[0.], [0.], [Meq]])
+    # TODO: avoid concatenates, init with nFrames
     for rep in range(config['nTR']):
         currentFrame = 0
         for event in config['pulseSeq']:
@@ -405,10 +401,11 @@ def applyPulseSeq(config, Meq, w, T1, T2, xpos=0, ypos=0, zpos=0):
 def simulateComponent(config, component, Meq, xpos=0, ypos=0, zpos=0):
     # Shifts in ppm for dephasing vectors:
     isochromats = [(2*i+1-config['nIsochromats'])/2*config['isochromatStep']+component['CS'] for i in range(0, config['nIsochromats'])]
-    comp = []
-    for isochromat in isochromats:
+    comp = np.empty((config['nIsochromats'],3,config['nFrames']))
+
+    for m, isochromat in enumerate(isochromats):
         w = config['w0']*isochromat*1e-6  # Demodulated frequency [krad]
-        comp.append(applyPulseSeq(config, Meq, w, component['T1'], component['T2'], xpos, ypos, zpos))
+        comp[m,:,:] = applyPulseSeq(config, Meq, w, component['T1'], component['T2'], xpos, ypos, zpos)
     return comp
 
 
@@ -614,6 +611,7 @@ def checkConfig(config):
     config['w0'] = 2*np.pi*gyro*config['B0'] # Larmor frequency [kRad/s]
 
     checkPulseSeq(config)
+    config['nFrames'] = len(config['clock']-1)
 
     ### Arrange locations ###
     if not 'locations' in config:
@@ -650,12 +648,10 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False, useFFMPEG = Tru
     checkConfig(config)
 
     ### Simulate ###
-    locs = np.empty((config['nx'],config['ny'],config['nz']), dtype=list)
-    vectors = np.empty((config['nx'],config['ny'],config['nz'],config['nComps'],config['nIsochromats']), dtype=list)
+    vectors = np.empty((config['nx'],config['ny'],config['nz'],config['nComps'],config['nIsochromats'],3,config['nFrames']))
     for z in range(config['nz']):
         for y in range(config['ny']):
             for x in range(config['nx']):
-                comps = []
                 for c, component in enumerate(config['components']):
                     if component['name'] in config['locations']:
                         try:
@@ -669,16 +665,13 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False, useFFMPEG = Tru
                     xpos = (x+.5-config['nx']/2)*config['locSpacing']
                     ypos = (y+.5-config['ny']/2)*config['locSpacing']
                     zpos = (z+.5-config['nz']/2)*config['locSpacing']
-                    vectors[x,y,z,c,:] = simulateComponent(config, component, Meq, xpos, ypos, zpos)
-                    comps.append(simulateComponent(config, component, Meq, xpos, ypos, zpos))
-                locs[x,y,z] = comps
+                    vectors[x,y,z,c,:,:,:] = simulateComponent(config, component, Meq, xpos, ypos, zpos)
+    signal = np.mean(vectors, (0,1,2,4)) # sum over space and isochromats
 
     ### Animate ###
     getText(config) # prepare text flashes for 3D plot 
     delay = int(100/config['fps']*leapFactor)  # Delay between frames in ticks of 1/100 sec
-    nFrames = len(locs[0,0,0][0][0][0])-1 # don't plot end frame 
-    nFrames = len(vectors[0,0,0,0,0][0])-1 # don't plot end frame 
-    
+
     tmpdir = './tmp'
     outdir = './out'
     if os.path.isdir(tmpdir):
@@ -695,7 +688,7 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False, useFFMPEG = Tru
                 ffmpegWriter = FFMPEGwriter.FFMPEGwriter(config['fps'])
             else:
                 os.makedirs(tmpdir, exist_ok=True)
-            for frame in range(0, nFrames, leapFactor):
+            for frame in range(0, config['nFrames'], leapFactor):
                 # Use only every leapFactor frame in animation
                 if output['type'] == '3D':
                     fig = plotFrame3D(config, vectors, frame)
@@ -704,13 +697,13 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False, useFFMPEG = Tru
                 elif output['type'] == 'psd':
                     fig = plotFramePSD(config, frame)
                 else:
-                    fig = plotFrameMT(config, locs, vectors, frame, output)
+                    fig = plotFrameMT(config, signal, frame, output)
                 plt.draw()
                 if useFFMPEG:
                     ffmpegWriter.addFrame(fig)
                 else: # use imagemagick: save frames temporarily 
                     file = os.path.join(tmpdir, '{}.png'.format(str(frame).zfill(4)))
-                    print('Saving frame {}/{} as "{}"'.format(frame+1, nFrames, file))
+                    print('Saving frame {}/{} as "{}"'.format(frame+1, config['nFrames'], file))
                     plt.savefig(file, facecolor=plt.gcf().get_facecolor())
                 plt.close()
             if useFFMPEG:
