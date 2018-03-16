@@ -352,17 +352,17 @@ def derivs(M, t, Meq, w, w1, T1, T2):  # Bloch equations in rotating frame
 
 # Simulate magnetization vector during nTR applications of pulseSeq
 def applyPulseSeq(config, Meq, w, T1, T2, xpos=0, ypos=0, zpos=0):
-    # Initial state is equilibrium magnetization
-    M = np.array([[0.], [0.], [Meq]])
-    # TODO: avoid concatenates, init with nFrames
+    M = np.zeros([config['nFrames']+1, 3])
+    M[0] = [0, 0, Meq] # Initial state is equilibrium magnetization
     for rep in range(config['nTR']):
-        currentFrame = 0
+        TRframe = rep * config['nFramesPerTR'] #starting frame of TR
+        frame = 0 #frame within TR
         for event in config['pulseSeq']:
             # Relaxation up to event
-            T = config['kernelClock'][event['frame']]-config['kernelClock'][currentFrame]
-            t = np.linspace(0, T, event['frame']-currentFrame+1, endpoint=True)
-            M1 = integrate.odeint(derivs, M[:, -1], t, args=(Meq, w, 0., T1, T2))
-            M = np.concatenate((M, M1[1:].transpose()), axis=1)
+            T = config['kernelClock'][event['frame']]-config['kernelClock'][frame]
+            t = np.linspace(0, T, event['frame']-frame+1, endpoint=True)
+            M[TRframe+frame:TRframe+event['frame']+1] = integrate.odeint(derivs, M[TRframe+frame], t, args=(Meq, w, 0., T1, T2))
+            frame = event['frame']
 
             wg = w  # frequency due to w plus any gradients
             if 'w1' in event:
@@ -372,10 +372,10 @@ def applyPulseSeq(config, Meq, w, T1, T2, xpos=0, ypos=0, zpos=0):
             t = np.linspace(0, event['nFrames']*config['dt'], event['nFrames']+1, endpoint=True)
 
             if 'spoil' in event and event['spoil']: # Spoiler event
-                M[:, -1] = spoil(M[:, -1])
+                M[TRframe+frame] = spoil(M[TRframe+frame])
             else:
                 if 'FA' in event and event['dur']==0: # "instant" RF-pulse event (incompatible with gradient)
-                    M1 = integrate.odeint(derivs, M[:, -1], t, args=(Meq, 0., w1, np.inf, np.inf))
+                    M[TRframe+frame:TRframe+frame+event['nFrames']+1] = integrate.odeint(derivs, M[TRframe+frame], t, args=(Meq, 0., w1, np.inf, np.inf))
                 else: # RF-pulse and/or gradient event
                     if any(key in event for key in ['Gx', 'Gy', 'Gz']): # Gradient present
                         if 'Gx' in event:
@@ -384,17 +384,16 @@ def applyPulseSeq(config, Meq, w, T1, T2, xpos=0, ypos=0, zpos=0):
                             wg += 2*np.pi*gyro*event['Gy']*ypos/1000 # [krad/s]
                         if 'Gz' in event:
                             wg += 2*np.pi*gyro*event['Gz']*zpos/1000 # [krad/s]
-                    M1 = integrate.odeint(derivs, M[:, -1], t, args=(Meq, wg, w1, T1, T2))
-                M = np.concatenate((M, M1[1:].transpose()), axis=1)
-    
-            currentFrame = event['frame']+event['nFrames']
+                    M[TRframe+frame:TRframe+frame+event['nFrames']+1] = integrate.odeint(derivs, M[TRframe+frame], t, args=(Meq, wg, w1, T1, T2))
+
+            frame += event['nFrames']
 
         # Then relaxation until end of TR
-        T = config['kernelClock'][-1]-config['kernelClock'][currentFrame]
-        t = np.linspace(0, T, len(config['kernelClock'])-currentFrame, endpoint=True)
-        M1 = integrate.odeint(derivs, M[:, -1], t, args=(Meq, w, 0., T1, T2))
-        M = np.concatenate((M, M1[1:].transpose()), axis=1)
-    return M
+        T = config['kernelClock'][-1]-config['kernelClock'][frame]
+        t = np.linspace(0, T, config['nFramesPerTR']-frame+1, endpoint=True)
+        M1 = integrate.odeint(derivs, M[TRframe+frame], t, args=(Meq, w, 0., T1, T2))
+        M[TRframe+frame:(rep+1)*config['nFramesPerTR']+1] = M1
+    return M[:-1].transpose()
 
 
 # Simulate Nisochromats dephasing magnetization vectors per component
@@ -611,7 +610,8 @@ def checkConfig(config):
     config['w0'] = 2*np.pi*gyro*config['B0'] # Larmor frequency [kRad/s]
 
     checkPulseSeq(config)
-    config['nFrames'] = len(config['clock']-1)
+    config['nFrames'] = len(config['clock'])-1
+    config['nFramesPerTR'] = len(config['kernelClock'])-1
 
     ### Arrange locations ###
     if not 'locations' in config:
