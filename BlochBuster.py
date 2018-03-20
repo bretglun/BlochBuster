@@ -408,63 +408,57 @@ def simulateComponent(config, component, Meq, xpos=0, ypos=0, zpos=0):
     return comp
 
 
-# Get clock during nTR applications of pulseSeq (clock stands still during excitation)
 # Get opacity and text for spoiler and RF text flashes in 3D plot
 def getText(config):
-    #TODO: fix lag for multiple TR (see SPGR.yml)
-    framesSinceSpoil = [np.inf]
-    framesSinceG = [np.inf]
-    framesSinceRF = [np.inf]
-    config['Gtext'] = ['']
-    config['RFtext'] = ['']
+    framesSinceSpoil = np.full([config['nFrames']+1], np.inf, dtype=int)
+    framesSinceRF = np.full([config['nFrames']+1], np.inf, dtype=int)
+    framesSinceG = np.full([config['nFrames']+1], np.inf, dtype=int)
+    config['RFtext'] = np.full([config['nFrames']+1], '', dtype=object)
+    config['Gtext'] = np.full([config['nFrames']+1], '', dtype=object)
+    
     for rep in range(config['nTR']):
-        lastFrame = 0
+        TRframe = rep * config['nFramesPerTR'] #starting frame of TR
+        frame = 0 #frame within TR
         for event in config['pulseSeq']:
             # Frames during relaxation
-            nFrames = event['frame']-lastFrame
+            nFrames = event['frame']-frame
             count = np.linspace(0, nFrames, nFrames+1, endpoint=True)
-            framesSinceSpoil.extend(framesSinceSpoil[-1] + count[1:])
-            framesSinceG.extend(framesSinceG[-1] + count[1:])
-            framesSinceRF.extend(framesSinceRF[-1] + count[1:])
-            config['RFtext'] += [config['RFtext'][-1]]*nFrames
-            config['Gtext'] += [config['Gtext'][-1]]*nFrames
-            
+            framesSinceSpoil[TRframe+frame:TRframe+event['frame']+1] = framesSinceSpoil[TRframe+frame] + count
+            framesSinceRF[TRframe+frame:TRframe+event['frame']+1] = framesSinceRF[TRframe+frame] + count
+            framesSinceG[TRframe+frame:TRframe+event['frame']+1] = framesSinceG[TRframe+frame] + count
+            frame = event['frame']
+
             #Frames during event
             count = np.linspace(0, event['nFrames'], event['nFrames']+1, endpoint=True)
             
             if 'spoil' in event and event['spoil']: # Spoiler event
-                framesSinceSpoil[-1] = 0
-            framesSinceSpoil.extend(framesSinceSpoil[-1] + count[1:])
+                framesSinceSpoil[TRframe+frame] = 0
+            framesSinceSpoil[TRframe+frame:TRframe+frame+event['nFrames']+1] = framesSinceSpoil[TRframe+frame] + count
+            
             if 'FA' in event: # RF-pulse and/or gradient event
-                framesSinceRF[-1] = 0
-                framesSinceRF.extend([0]*event['nFrames'])
+                framesSinceRF[TRframe+frame:TRframe+frame+event['nFrames']+1] = 0
                 # TODO: add info about the RF phase angle
-                config['RFtext'][-1] = str(int(abs(event['FA'])))+u'\N{DEGREE SIGN}'+'-pulse'
+                config['RFtext'][TRframe+frame:] = str(int(abs(event['FA'])))+u'\N{DEGREE SIGN}'+'-pulse'
             else:
-                framesSinceRF.extend(framesSinceRF[-1] + count[1:])
-            config['RFtext'] += [config['RFtext'][-1]]*event['nFrames']
+                framesSinceRF[TRframe+frame:TRframe+frame+event['nFrames']+1] = framesSinceRF[TRframe+frame] + count
             if any(key in event for key in ['Gx', 'Gy', 'Gz']): # gradient event
-                framesSinceG[-1] = 0
-                framesSinceG.extend([0]*event['nFrames'])
+                framesSinceG[TRframe+frame:TRframe+frame+event['nFrames']+1] = 0
                 grad = ''
                 for g in ['Gx', 'Gy', 'Gz']:
                     if g in event:
                         grad += '  {}: {} mT/m'.format(g, event[g])
-                config['Gtext'][-1] = grad
+                config['Gtext'][TRframe+frame:] = grad
             else:
-                framesSinceG.extend(framesSinceG[-1] + count[1:])
-            config['Gtext'] += [config['Gtext'][-1]]*event['nFrames']
-
-            lastFrame = event['frame'] + event['nFrames']
+                framesSinceG[TRframe+frame:TRframe+frame+event['nFrames']+1] = framesSinceG[TRframe+frame] + count
+            
+            frame += event['nFrames']
 
         # Frames during relaxation until end of TR
-        nFrames = len(config['kernelClock'])-lastFrame
+        nFrames = config['nFramesPerTR']-frame
         count = np.linspace(0, nFrames, nFrames+1, endpoint=True)
-        framesSinceSpoil.extend(framesSinceSpoil[-1] + count[1:])
-        framesSinceG.extend(framesSinceG[-1] + count[1:])
-        framesSinceRF.extend(framesSinceRF[-1] + count[1:])
-        config['RFtext'] += [config['RFtext'][-1]]*nFrames
-        config['Gtext'] += [config['Gtext'][-1]]*nFrames
+        framesSinceSpoil[TRframe+frame:(rep+1)*config['nFramesPerTR']+1] = framesSinceSpoil[TRframe+frame] + count
+        framesSinceRF[TRframe+frame:(rep+1)*config['nFramesPerTR']+1] = framesSinceRF[TRframe+frame] + count
+        framesSinceG[TRframe+frame:(rep+1)*config['nFramesPerTR']+1] = framesSinceG[TRframe+frame] + count
             
     # Calculate alphas (one second fade)
     config['spoilAlpha'] = [max(1.0-frames/config['fps'], 0) for frames in framesSinceSpoil]
