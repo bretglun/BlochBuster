@@ -655,7 +655,7 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False, useFFMPEG = Tru
                     elif isinstance(config['locations'], list):
                         Meq = config['locations'][z][y][x]
                     else:
-                        continue
+                        Meq = 0.0
                     xpos = (x+.5-config['nx']/2)*config['locSpacing']
                     ypos = (y+.5-config['ny']/2)*config['locSpacing']
                     zpos = (z+.5-config['nz']/2)*config['locSpacing']
