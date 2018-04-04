@@ -467,7 +467,8 @@ def getText(config):
 
 
 def checkPulseSeq(config):
-    dt = config['dt']
+    if 'pulseSeq' not in config:
+        config['pulseSeq'] = []
     allowedKeys = ['t', 'spoil', 'dur', 'FA', 'B1', 'phase', 'Gx', 'Gy', 'Gz']
     for event in config['pulseSeq']:
         for item in event.keys(): # allowed keys
@@ -480,6 +481,7 @@ def checkPulseSeq(config):
     config['pulseSeq'] = sorted(config['pulseSeq'], key=lambda event: event['t'])
     
     t = np.array([0.0])
+    dt = config['dt']
     for event in config['pulseSeq']:
         T = np.round(event['t']/dt)*dt-t[-1] # time up to event
         if T<0:
@@ -573,8 +575,8 @@ def arrangeLocations(slices, config):
 
 
 def checkConfig(config):
-    if any([key not in config for key in ['pulseSeq', 'TR', 'B0', 'speed', 'output']]):
-        raise Exception('Config must contain "pulseSeq", "TR", "B0", "speed", and "output"')
+    if any([key not in config for key in ['TR', 'B0', 'speed', 'output']]):
+        raise Exception('Config must contain "TR", "B0", "speed", and "output"')
     if 'title' not in config:
         config['title'] = ''
     if 'nTR' not in config:
