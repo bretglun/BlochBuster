@@ -351,9 +351,9 @@ def derivs(M, t, Meq, w, w1, T1, T2):  # Bloch equations in rotating frame
 
 
 # Simulate magnetization vector during nTR applications of pulseSeq
-def applyPulseSeq(config, Meq, w, T1, T2, xpos=0, ypos=0, zpos=0):
+def applyPulseSeq(config, Meq, M0, w, T1, T2, xpos=0, ypos=0, zpos=0):
     M = np.zeros([config['nFrames']+1, 3])
-    M[0] = [0, 0, Meq] # Initial state is equilibrium magnetization
+    M[0] = M0 # Initial state
     for rep in range(config['nTR']):
         TRframe = rep * config['nFramesPerTR'] #starting frame of TR
         frame = 0 #frame within TR
@@ -397,14 +397,16 @@ def applyPulseSeq(config, Meq, w, T1, T2, xpos=0, ypos=0, zpos=0):
 
 
 # Simulate Nisochromats dephasing magnetization vectors per component
-def simulateComponent(config, component, Meq, xpos=0, ypos=0, zpos=0):
+def simulateComponent(config, component, Meq, M0=None, xpos=0, ypos=0, zpos=0):
+    if not M0:
+        M0 = [0, 0, Meq] # Default initial state is equilibrium magnetization
     # Shifts in ppm for dephasing vectors:
     isochromats = [(2*i+1-config['nIsochromats'])/2*config['isochromatStep']+component['CS'] for i in range(0, config['nIsochromats'])]
     comp = np.empty((config['nIsochromats'],3,config['nFrames']))
 
     for m, isochromat in enumerate(isochromats):
         w = config['w0']*isochromat*1e-6  # Demodulated frequency [krad]
-        comp[m,:,:] = applyPulseSeq(config, Meq, w, component['T1'], component['T2'], xpos, ypos, zpos)
+        comp[m,:,:] = applyPulseSeq(config, Meq, M0, w, component['T1'], component['T2'], xpos, ypos, zpos)
     return comp
 
 
@@ -551,27 +553,34 @@ def checkPulseSeq(config):
     for rep in range(config['nTR']):
         config['clock'] = np.append(config['clock'][:-1], config['clock'][-1]+t)
 
-def arrangeLocations(slices, config):
+def arrangeLocations(slices, config, M0=False):
+    if M0:
+        key = 'M0'
+    else:
+        key = 'locations'
     if not isinstance(slices, list):
         raise Exception('Did not expect {} in config "locations"'.format(type(slices)))
     if not isinstance(slices[0], list):
         slices = [slices]
     if not isinstance(slices[0][0], list):
         slices = [slices]
+    if M0 and not isinstance(slices[0][0][0], list):
+        slices = [slices]
     if 'nz' not in config:
         config['nz'] = len(slices)
     elif len(slices)!=config['nz']:
-        raise Exception('Config "locations": number of slices do not match')
+        raise Exception('Config "{}": number of slices do not match'.format(key))
     if 'ny' not in config:
         config['ny'] = len(slices[0])
     elif len(slices[0])!=config['ny']:
-        raise Exception('Config "locations": number of rows do not match')
+        raise Exception('Config "{}": number of rows do not match'.format(key))
     if 'nx' not in config:
         config['nx'] = len(slices[0][0])
-    elif  len(slices[0][0])!=config['nx']:
-        raise Exception('Config "locations": number of elements do not match')
+    elif len(slices[0][0])!=config['nx']:
+        raise Exception('Config "{}": number of elements do not match'.format(key))
+    if M0 and len(slices[0][0][0])!=3:
+        raise Exception('Config "M0": inner dimension must be of length 3')
     return slices
-
 
 
 def checkConfig(config):
@@ -613,7 +622,6 @@ def checkConfig(config):
     if not 'locations' in config:
         config['locations'] = arrangeLocations([[[1]]], config)
     else:
-        nx, ny, nz = [], [], []
         if isinstance(config['locations'], dict):
             for comp in iter(config['locations']):
                 config['locations'][comp] = arrangeLocations(config['locations'][comp], config)
@@ -622,6 +630,12 @@ def checkConfig(config):
     for (FOV, n) in [('FOVx', 'nx'), ('FOVy', 'ny'), ('FOVz', 'nz')]:
         if FOV not in config:
             config[FOV] = config[n]*config['locSpacing'] #FOV in m
+    if 'M0' in config:
+        if isinstance(config['M0'], dict):
+            for comp in iter(config['M0']):
+                config['M0'][comp] = arrangeLocations(config['M0'][comp], config, M0=True)
+        else:
+            config['M0'] = arrangeLocations(config['M0'], config, M0=True)
 
 
 # Main program
@@ -653,15 +667,24 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False, useFFMPEG = Tru
                         try:
                             Meq = config['locations'][component['name']][z][y][x]
                         except:
-                            raise Exception('Is the location matrix shape equal for all components?')
+                            raise Exception('Is the "location" matrix shape equal for all components?')
                     elif isinstance(config['locations'], list):
                         Meq = config['locations'][z][y][x]
                     else:
                         Meq = 0.0
+                    if 'M0' in config and component['name'] in config['M0']:
+                        try:
+                            M0 = config['M0'][component['name']][z][y][x]
+                        except:
+                            raise Exception('Is the "M0" matrix shape equal for all components?')
+                    elif 'M0' in config and isinstance(config['M0'], list):
+                        M0 = config['M0'][z][y][x]
+                    else:
+                        M0 = None
                     xpos = (x+.5-config['nx']/2)*config['locSpacing']
                     ypos = (y+.5-config['ny']/2)*config['locSpacing']
                     zpos = (z+.5-config['nz']/2)*config['locSpacing']
-                    vectors[x,y,z,c,:,:,:] = simulateComponent(config, component, Meq, xpos, ypos, zpos)
+                    vectors[x,y,z,c,:,:,:] = simulateComponent(config, component, Meq, M0, xpos, ypos, zpos)
     signal = np.mean(vectors, (0,1,2,4)) # sum over space and isochromats
 
     ### Animate ###
