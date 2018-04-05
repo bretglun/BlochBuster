@@ -135,14 +135,18 @@ def plotFrame3D(config, vectors, frame, output):
                         M = vectors[x,y,z,c,m,:,frame]
                         Mnorm = np.linalg.norm(M)
                         alpha = 1.-2*np.abs((m+.5)/nIsoc-.5)
-                        if Mnorm>.05:
-                            ax.add_artist(Arrow3D(  [xpos[x], xpos[x]+M[0]], 
-                                                    [ypos[y], ypos[y]+M[1]],
-                                                    [zpos[z], zpos[z]+M[2]], 
-                                                    mutation_scale=20,
-                                                    arrowstyle="-|>", lw=2,
-                                                    color=col, alpha=alpha, 
-                                                    zorder=order[m]+nIsoc*int(100*(1-Mnorm))))
+                        thres = 0.075*axLimit
+                        if Mnorm>thres:
+                            arrowScale = 20
+                        else:
+                            arrowScale = 20*Mnorm/thres # Shrink arrowhead close to origo
+                        ax.add_artist(Arrow3D(  [xpos[x], xpos[x]+M[0]], 
+                                                [ypos[y], ypos[y]+M[1]],
+                                                [zpos[z], zpos[z]+M[2]], 
+                                                mutation_scale=arrowScale,
+                                                arrowstyle='-|>', shrinkA=0, shrinkB=0, lw=2,
+                                                color=col, alpha=alpha, 
+                                                zorder=order[m]+nIsoc*int(100*(1-Mnorm))))
         
     # Draw "spoiler" and "FA-pulse" text
     fig.text(1, .94, config['RFtext'][frame], fontsize=14, alpha=config['RFalpha'][frame],
