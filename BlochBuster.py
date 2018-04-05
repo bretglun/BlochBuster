@@ -64,7 +64,7 @@ class Arrow3D(FancyArrowPatch):
 
 
 # Creates an animated plot of magnetization in a 3D view
-def plotFrame3D(config, vectors, frame):
+def plotFrame3D(config, vectors, frame, output):
     nx, ny, nz, nComps, nIsoc = vectors.shape[:5]
     xpos = np.arange(nx)-nx/2+.5
     ypos = -(np.arange(ny)-ny/2+.5)
@@ -102,7 +102,7 @@ def plotFrame3D(config, vectors, frame):
         bottom += -.085
     ax.set_position([left, bottom, width, height])
 
-    if nx*ny*nz == 1:
+    if output['drawAxes']:
         # Draw axes circles
         for i in ["x", "y", "z"]:
             circle = Circle((0, 0), 1, fill=True, lw=1, fc=colors['circle'])
@@ -636,6 +636,12 @@ def checkConfig(config):
                 config['M0'][comp] = arrangeLocations(config['M0'][comp], config, M0=True)
         else:
             config['M0'] = arrangeLocations(config['M0'], config, M0=True)
+    
+    # check output
+    for output in config['output']:
+        if output['type']=='3D':
+            if 'drawAxes' not in output:
+                output['drawAxes'] = config['nx']*config['ny']*config['nz'] == 1
 
 
 # Main program
@@ -710,7 +716,7 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False, useFFMPEG = Tru
             for frame in range(0, config['nFrames'], leapFactor):
                 # Use only every leapFactor frame in animation
                 if output['type'] == '3D':
-                    fig = plotFrame3D(config, vectors, frame)
+                    fig = plotFrame3D(config, vectors, frame, output)
                 elif output['type'] == 'kspace':
                     fig = plotFrameKspace(config, frame)
                 elif output['type'] == 'psd':
