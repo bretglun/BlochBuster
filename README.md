@@ -32,12 +32,16 @@ A spoiler event is indicated by "spoil: true", and spoils all transverse magneti
 The pulse sequence repeats after "TR" msec, with "nTR" repetitions. The main field "B0" is given in T.
 
 The "components" field is a list of components/tissues, each represented by a magnetization vector with a distinct color in the plot. 
-Each components "name" will be given in a legend. 
+Each components "name" will be printed in the legend. 
 "CS" is chemical shift in ppm; "T1" and "T2" are relaxation times in msec. 
 Each component may be represented by a fan of "nIsochromats" vectors, with a distribution of precession frequencies determined by "isochromatStep" [ppm].
 
 The optional "locations" field should contain a 3D matrix, indicating the equilibrium magnetization at different spatial positions.
 One matrix can be given for each components, but their shapes must match.
+
+If an initial state other than equilibrium is desired, it can be specified in the "M0" field by a matrix matching the shape of "locations" with an additional inner dimension of size 3 representing Mx, My, and Mz.
+
+White background can be toggled by setting "color: white" under the "background" field.
 
 The animation speed is determined by the "speed" field, where 1 corresponds to real-time. 
 
@@ -53,11 +57,10 @@ HOW TO USE
 ----------
 `Example 1: python BlochBuster.py -c "config/SE.yml"`
 
-`Example 2: python BlochBuster.py -c "config/SpEnc.yml" -l 5 -b`
+`Example 2: python BlochBuster.py -c "config/SpEnc.yml" -l 5`
 
 The -c flag specifies which configuration file to use as input.  
 The -l flag is optional and specifies a leap factor, allowing frames to be skipped when generating the animation file. This enables fast preview for testing.  
-The -b flag toggles black background.
 
 DEPENDENCIES
 ------------

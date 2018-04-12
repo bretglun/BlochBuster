@@ -51,6 +51,8 @@ locSpacing: 0.001
 nIsochromats: 20
 isochromatStep: 0.01
 speed: 0.003
+background:
+  color: white
 output: 
   - type: 3D
     file: example_3D.gif

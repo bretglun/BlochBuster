@@ -651,17 +651,20 @@ def checkConfig(config):
         if output['type']=='3D':
             if 'drawAxes' not in output:
                 output['drawAxes'] = config['nx']*config['ny']*config['nz'] == 1
+    if 'background' not in config:
+        config['background'] = {}
+    if 'color' not in config['background']:
+        config['background']['color'] = 'black'
+    if config['background']['color'] not in ['black', 'white']:
+        raise Exception('Only "black" and "white" supported as background colors')
 
 
 # Main program
-def BlochBuster(configFile, leapFactor=1, blackBackground=False, useFFMPEG = True):
+def BlochBuster(configFile, leapFactor=1, useFFMPEG=True):
     # Set global constants
     global gyro
     gyro = 42577.			# Gyromagnetic ratio [kHz/T]
 
-    if blackBackground:
-        for i in ['bg', 'axis', 'text', 'circle']:
-            colors[i][:3] = list(map(lambda x: 1-x, colors[i][:3]))
     # Read configuration file
     with open(configFile, 'r') as f:
         try:
@@ -671,6 +674,10 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False, useFFMPEG = Tru
     
     ### Setup config correctly ###
     checkConfig(config)
+
+    if config['background']['color'] == 'black':
+        for i in ['bg', 'axis', 'text', 'circle']:
+            colors[i][:3] = list(map(lambda x: 1-x, colors[i][:3]))
 
     ### Simulate ###
     vectors = np.empty((config['nx'],config['ny'],config['nz'],config['nComps'],config['nIsochromats'],3,config['nFrames']))
@@ -755,10 +762,10 @@ def main():
     p = optparse.OptionParser()
     p.add_option('--configFile', '-c', default='',  type="string", help="Name of configuration text file")
     p.add_option('--leapFactor', '-l', default=1, type="int", help="Leap factor for smaller filesize and fewer frames per second")
-    p.add_option('--blackBackground', '-b', action="store_true", dest="blackBackground", default=False, help="Plot with black background")
+
     # Parse command line
     options, arguments = p.parse_args()
-    BlochBuster(options.configFile, options.leapFactor, options.blackBackground)
+    BlochBuster(options.configFile, options.leapFactor)
 
 if __name__ == '__main__':
     main()
