@@ -82,7 +82,7 @@ def plotFrame3D(config, vectors, frame, output):
     figSize = 5 # figure size in inches
     canvasWidth = figSize
     canvasHeight = figSize*aspect
-    fig = plt.figure(figsize=(canvasWidth, canvasHeight))
+    fig = plt.figure(figsize=(canvasWidth, canvasHeight), dpi=output['dpi'])
     axLimit = max(nx,ny,nz)/2+.5
     ax = fig.gca(projection='3d', xlim=(-axLimit,axLimit), ylim=(-axLimit,axLimit), zlim=(-axLimit,axLimit), fc=colors['bg'])
     ax.set_aspect('equal')
@@ -187,7 +187,7 @@ def plotFrameMT(config, signal, frame, output):
             ymin, ymax = 0, 1
     elif output['type'] == 'z':
         ymin, ymax = -1, 1
-    fig = plt.figure(figsize=(5, 2.7), facecolor=colors['bg'])
+    fig = plt.figure(figsize=(5, 2.7), facecolor=colors['bg'], dpi=output['dpi'])
     ax = fig.gca(xlim=(xmin, xmax), ylim=(ymin, ymax), fc=colors['bg'])
     for side in ['bottom', 'right', 'top', 'left']:
         ax.spines[side].set_visible(False)  # remove default axes
@@ -249,12 +249,12 @@ def plotFrameMT(config, signal, frame, output):
     return fig
 
 
-def plotFrameKspace(config, frame):
+def plotFrameKspace(config, frame, output):
     #TODO: support for 3D k-space
     kmax = 1/(2*config['locSpacing'])
     xmin, xmax = -kmax, kmax
     ymin, ymax = -kmax, kmax
-    fig = plt.figure(figsize=(5, 5), facecolor=colors['bg'])
+    fig = plt.figure(figsize=(5, 5), facecolor=colors['bg'], dpi=output['dpi'])
     ax = fig.gca(xlim=(xmin, xmax), ylim=(ymin, ymax), fc=colors['bg'])
     for side in ['bottom', 'right', 'top', 'left']:
         ax.spines[side].set_color(colors['text'])
@@ -284,10 +284,10 @@ def plotFrameKspace(config, frame):
     return fig
 
 
-def plotFramePSD(config, frame):
+def plotFramePSD(config, frame, output):
     xmin, xmax = 0, config['kernelClock'][-1]
     ymin, ymax = 0, 5
-    fig = plt.figure(figsize=(5, 5), facecolor=colors['bg'])
+    fig = plt.figure(figsize=(5, 5), facecolor=colors['bg'], dpi=output['dpi'])
     ax = fig.gca(xlim=(xmin, xmax), ylim=(ymin, ymax), fc=colors['bg'])
     for side in ['bottom', 'right', 'top', 'left']:
         ax.spines[side].set_visible(False)  # remove default axes
@@ -646,6 +646,8 @@ def checkConfig(config):
     
     # check output
     for output in config['output']:
+        if 'dpi' not in output:
+            output['dpi'] = 100
         if output['type']=='3D':
             if 'drawAxes' not in output:
                 output['drawAxes'] = config['nx']*config['ny']*config['nz'] == 1
@@ -725,9 +727,9 @@ def BlochBuster(configFile, leapFactor=1, blackBackground=False, useFFMPEG = Tru
                 if output['type'] == '3D':
                     fig = plotFrame3D(config, vectors, frame, output)
                 elif output['type'] == 'kspace':
-                    fig = plotFrameKspace(config, frame)
+                    fig = plotFrameKspace(config, frame, output)
                 elif output['type'] == 'psd':
-                    fig = plotFramePSD(config, frame)
+                    fig = plotFramePSD(config, frame, output)
                 else:
                     fig = plotFrameMT(config, signal, frame, output)
                 plt.draw()

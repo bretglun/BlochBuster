@@ -55,12 +55,14 @@ output:
   - type: 3D
     file: example_3D.gif
     drawAxes: False
+    dpi: 100
   - type: xy
     abs: true
     file: example_xy_abs.gif
   - type: xy
     abs: false
     file: example_xy_RI.mp4
+    dpi: 72
   - type: z
     file: example_z.gif
   - type: psd
