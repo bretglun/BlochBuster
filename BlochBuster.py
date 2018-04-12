@@ -316,7 +316,10 @@ def plotFramePSD(config, frame):
     Gxs = [np.abs(event['Gx']) for event in config['pulseSeq'] if 'Gx' in event]
     Gys = [np.abs(event['Gy']) for event in config['pulseSeq'] if 'Gy' in event]
     Gzs = [np.abs(event['Gz']) for event in config['pulseSeq'] if 'Gz' in event]
-    ylim['Gx'] = ylim['Gy'] = ylim['Gz'] = 2.1*np.max(np.concatenate((Gxs, Gys, Gzs)))
+    if not Gxs and not Gys and not Gzs:
+        ylim['Gx'] = ylim['Gy'] = ylim['Gz'] = 1.0
+    else:    
+        ylim['Gx'] = ylim['Gy'] = ylim['Gz'] = 2.1*np.max(np.concatenate((Gxs, Gys, Gzs)))
     ypos = {board: y for board, y in [('B1',4), ('Gx',3), ('Gy',2), ('Gz',1)]}
     for event in config['pulseSeq']:
         xpos = config['kernelClock'][event['frame']]
