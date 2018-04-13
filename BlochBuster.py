@@ -632,8 +632,13 @@ def checkConfig(config):
         if isinstance(config['locations'], dict):
             for comp in iter(config['locations']):
                 config['locations'][comp] = arrangeLocations(config['locations'][comp], config)
+        elif isinstance(config['locations'], list):
+            locs = config['locations']
+            config['locations'] = {}
+            for comp in [n['name'] for n in config['components']]:
+                config['locations'][comp] = arrangeLocations(locs, config)
         else:
-            config['locations'] = arrangeLocations(config['locations'], config)
+            raise Exception('Config "locations" should be list or components dict')
     for (FOV, n) in [('FOVx', 'nx'), ('FOVy', 'ny'), ('FOVz', 'nz')]:
         if FOV not in config:
             config[FOV] = config[n]*config['locSpacing'] #FOV in m
@@ -641,8 +646,13 @@ def checkConfig(config):
         if isinstance(config['M0'], dict):
             for comp in iter(config['M0']):
                 config['M0'][comp] = arrangeLocations(config['M0'][comp], config, M0=True)
+        elif isinstance(config['M0'], list):
+            M0 = config['M0']
+            config['M0'] = {}
+            for comp in [n['name'] for n in config['components']]:
+                config['M0'][comp] = arrangeLocations(M0, config, M0=True)
         else:
-            config['M0'] = arrangeLocations(config['M0'], config, M0=True)
+            raise Exception('Config "M0" should be list or components dict')
     
     # check output
     for output in config['output']:
@@ -707,7 +717,6 @@ def BlochBuster(configFile, leapFactor=1, useFFMPEG=True):
                     ypos = (y+.5-config['ny']/2)*config['locSpacing']
                     zpos = (z+.5-config['nz']/2)*config['locSpacing']
                     vectors[x,y,z,c,:,:,:] = simulateComponent(config, component, Meq, M0, xpos, ypos, zpos)
-    signal = np.mean(vectors, (0,1,2,4)) # sum over space and isochromats
 
     ### Animate ###
     getText(config) # prepare text flashes for 3D plot 
@@ -723,6 +732,12 @@ def BlochBuster(configFile, leapFactor=1, useFFMPEG=True):
             raise Exception('No files written.')
     for output in config['output']:
         if output['file']:
+            if output['type'] in ['xy', 'z']:
+                signal = np.sum(vectors, (0,1,2,4)) # sum over space and isochromats
+                if 'normalize' in output and output['normalize']:
+                    for c, comp in enumerate([n['name'] for n in config['components']]):
+                        signal[c,:] /= np.sum(config['locations'][comp])
+                signal /= np.max(np.abs(signal)) # scale signal relative to maximum
             os.makedirs(outdir, exist_ok=True)
             outfile = os.path.join(outdir, output['file'])
             if useFFMPEG:
@@ -737,7 +752,7 @@ def BlochBuster(configFile, leapFactor=1, useFFMPEG=True):
                     fig = plotFrameKspace(config, frame, output)
                 elif output['type'] == 'psd':
                     fig = plotFramePSD(config, frame, output)
-                else:
+                elif output['type'] in ['xy', 'z']:
                     fig = plotFrameMT(config, signal, frame, output)
                 plt.draw()
                 if useFFMPEG:

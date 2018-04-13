@@ -60,6 +60,7 @@ output:
     dpi: 100
   - type: xy
     abs: true
+    normalize: False
     file: example_xy_abs.gif
   - type: xy
     abs: false
