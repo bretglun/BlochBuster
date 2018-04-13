@@ -738,6 +738,8 @@ def BlochBuster(configFile, leapFactor=1, useFFMPEG=True):
                     for c, comp in enumerate([n['name'] for n in config['components']]):
                         signal[c,:] /= np.sum(config['locations'][comp])
                 signal /= np.max(np.abs(signal)) # scale signal relative to maximum
+                if 'scale' in output:
+                    signal *= output['scale']
             os.makedirs(outdir, exist_ok=True)
             outfile = os.path.join(outdir, output['file'])
             if useFFMPEG:

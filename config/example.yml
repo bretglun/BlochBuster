@@ -67,6 +67,7 @@ output:
     file: example_xy_RI.mp4
     dpi: 72
   - type: z
+    scale: 0.9
     file: example_z.gif
   - type: psd
     file: example_psd.gif
