@@ -66,12 +66,17 @@ class Arrow3D(FancyArrowPatch):
 # Creates an animated plot of magnetization in a 3D view
 def plotFrame3D(config, vectors, frame, output):
     nx, ny, nz, nComps, nIsoc = vectors.shape[:5]
-    xpos = np.arange(nx)-nx/2+.5
-    ypos = -(np.arange(ny)-ny/2+.5)
-    zpos = -(np.arange(nz)-nz/2+.5)
+    if config['collapseLocations']:
+        xpos = np.zeros([nx])
+        ypos = np.zeros([nx])
+        zpos = np.zeros([nx])
+    else:
+        xpos = np.arange(nx)-nx/2+.5
+        ypos = -(np.arange(ny)-ny/2+.5)
+        zpos = -(np.arange(nz)-nz/2+.5)
 
     # Create 3D axes
-    if nx*ny*nz==1:
+    if nx*ny*nz==1 or config['collapseLocations']:
         aspect = .95 # figure aspect ratio
     elif nz==1 and ny==1 and nx>1:
         aspect = 0.6
@@ -84,10 +89,12 @@ def plotFrame3D(config, vectors, frame, output):
     canvasHeight = figSize*aspect
     fig = plt.figure(figsize=(canvasWidth, canvasHeight), dpi=output['dpi'])
     axLimit = max(nx,ny,nz)/2+.5
+    if config['collapseLocations']:
+        axLimit = 1.0
     ax = fig.gca(projection='3d', xlim=(-axLimit,axLimit), ylim=(-axLimit,axLimit), zlim=(-axLimit,axLimit), fc=colors['bg'])
     ax.set_aspect('equal')
     
-    if nx*ny*nz>1:
+    if nx*ny*nz>1 and not config['collapseLocations']:
         azim = -78 # azimuthal angle of x-y-plane
         ax.view_init(azim=azim) #ax.view_init(azim=azim, elev=elev)
     ax.set_axis_off()
@@ -626,6 +633,8 @@ def checkConfig(config):
     config['nFramesPerTR'] = len(config['kernelClock'])-1
 
     ### Arrange locations ###
+    if not 'collapseLocations' in config:
+        config['collapseLocations'] = False
     if not 'locations' in config:
         config['locations'] = arrangeLocations([[[1]]], config)
     else:
