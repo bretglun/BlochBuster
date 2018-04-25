@@ -669,6 +669,18 @@ def checkConfig(config):
         raise Exception('Only "black" and "white" supported as background colors')
 
 
+def rotMatrix(angle, axis):
+    c, s = np.cos(angle), np.sin(angle)
+    R = np.array([[1,0,0], [0,c,-s], [0,s,c]])
+    return np.roll(np.roll(R, axis, axis=0), axis, axis=1)
+    
+
+def polar2cartesian(polar):
+    r, theta, azim = polar
+    M = np.dot(np.dot(np.array([0, 0, r]), rotMatrix(np.radians(azim), 1)), rotMatrix(np.radians(theta), 2))
+    return list(M)
+
+
 # Main program
 def BlochBuster(configFile, leapFactor=1, useFFMPEG=True):
     # Set global constants
@@ -706,11 +718,11 @@ def BlochBuster(configFile, leapFactor=1, useFFMPEG=True):
                         Meq = 0.0
                     if 'M0' in config and component['name'] in config['M0']:
                         try:
-                            M0 = config['M0'][component['name']][z][y][x]
+                            M0 = polar2cartesian(config['M0'][component['name']][z][y][x])
                         except:
                             raise Exception('Is the "M0" matrix shape equal for all components?')
                     elif 'M0' in config and isinstance(config['M0'], list):
-                        M0 = config['M0'][z][y][x]
+                        M0 = polar2cartesian(config['M0'][z][y][x])
                     else:
                         M0 = None
                     xpos = (x+.5-config['nx']/2)*config['locSpacing']

@@ -39,7 +39,7 @@ Each component may be represented by a fan of "nIsochromats" vectors, with a dis
 The optional "locations" field should contain a 3D matrix, indicating the equilibrium magnetization at different spatial positions.
 One matrix can be given for each components, but their shapes must match.
 
-If an initial state other than equilibrium is desired, it can be specified in the "M0" field by a matrix matching the shape of "locations" with an additional inner dimension of size 3 representing Mx, My, and Mz.
+If an initial state other than equilibrium is desired, it can be specified in the "M0" field by a matrix matching the shape of "locations" with an additional inner dimension of size 3 representing vector length, polar angle [degrees], and azimuthal angle [degrees].
 
 White background can be toggled by setting "color: white" under the "background" field.
 
