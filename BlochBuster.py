@@ -102,7 +102,7 @@ def plotFrame3D(config, vectors, frame, output):
     height = width/aspect
     left = (1-width)/2
     bottom = (1-height)/2
-    if nx*ny==1: # shift to fit legend
+    if nx*ny*nz==1 or config['collapseLocations']: # shift to fit legend
         left += .035
         bottom += -.075
     else:
