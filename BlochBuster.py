@@ -77,7 +77,7 @@ def plotFrame3D(config, vectors, frame, output):
 
     # Create 3D axes
     if nx*ny*nz==1 or config['collapseLocations']:
-        aspect = .95 # figure aspect ratio
+        aspect = .952 # figure aspect ratio
     elif nz==1 and ny==1 and nx>1:
         aspect = 0.6
     elif nz==1 and nx>1 and ny>1:
