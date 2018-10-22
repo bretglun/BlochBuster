@@ -1130,6 +1130,8 @@ def checkConfig(config):
                                ('composants', False)]:
             if key not in comp:
                 comp[key] = default
+        if 'color' in comp:
+            colors['comps'].insert(c, comp['color'])
     config['nComps'] = len(config['components'])
     if 'locSpacing' not in config:
         config['locSpacing'] = 0.001      # distance between locations [m]
