@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Copyright (c) 2017 Johan Berglund
 # BlochBuster is distributed under the terms of the GNU General Public License
 #
@@ -13,6 +14,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+''' BlochBuster is a simulator of Bloch equations
+'''
 
 import mpl_toolkits.mplot3d.art3d as art3d
 from mpl_toolkits.mplot3d import proj3d
@@ -27,7 +30,7 @@ import os.path
 import shutil
 import optparse
 import yaml
-import FFMPEGwriter
+import BlochBuster.FFMPEGwriter
 
 
 colors = {  'bg':       [1,1,1], 
@@ -356,7 +359,23 @@ def degrees(radians): return radians*180./np.pi
 def spoil(M): return np.array([0, 0, M[2]])
 
 
-def derivs(M, t, Meq, w, w1, T1, T2):  # Bloch equations in rotating frame
+def derivs(M, t, Meq, w, w1, T1, T2):
+    '''Bloch equations in rotating frame 
+
+    Args:
+        w:    Larmor frequency :math:`2\\pi\\gamma B_0` [kRad] 
+	w1 (complex):   B1 rotation frequency :math:`2\\pi\\gamma B_1`  [kRad]
+        T1:   longitudinal relaxation time 
+        T2:   transverse relaxation time 
+        M:    magnetization vector
+        Meq:  equilibrium magnetization
+        t:    not used
+
+    Returns:
+        integrand :math:`\\frac{dM}{dt}`
+    
+    '''
+    
     dMdt = np.zeros_like(M)
     dMdt[0] = -M[0]/T2+M[1]*w+M[2]*w1.real
     dMdt[1] = -M[0]*w-M[1]/T2+M[2]*w1.imag
@@ -691,7 +710,7 @@ def polar2cartesian(polar):
 
 
 # Main program
-def BlochBuster(configFile, leapFactor=1, useFFMPEG=True):
+def Bloch(configFile, leapFactor=1, useFFMPEG=True):
     # Set global constants
     global gyro
     gyro = 42577.			# Gyromagnetic ratio [kHz/T]
@@ -803,7 +822,7 @@ def main():
 
     # Parse command line
     options, arguments = p.parse_args()
-    BlochBuster(options.configFile, options.leapFactor)
+    Bloch(options.configFile, options.leapFactor)
 
 if __name__ == '__main__':
     main()

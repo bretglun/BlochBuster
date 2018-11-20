@@ -1,3 +1,2 @@
-import BlochBuster
-
-BlochBuster.BlochBuster(r'config/SE.yml', 1, False)
+from BlochBuster import BlochBuster 
+BlochBuster.Bloch(r'config/SE.yml', 1, False)
