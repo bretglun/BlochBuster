@@ -1,2 +1,6 @@
-from BlochBuster import BlochBuster 
-BlochBuster.Bloch(r'config/SE.yml', 1, False)
+#!/usr/bin/env python3
+
+import BlochBuster
+
+
+BlochBuster.run(r'config/SE.yml')

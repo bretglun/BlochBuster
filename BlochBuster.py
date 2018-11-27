@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2017 Johan Berglund
+# Copyright (c) 2017-2018 Johan Berglund
 # BlochBuster is distributed under the terms of the GNU General Public License
 #
 # This program is free software: you can redistribute it and/or modify
@@ -30,7 +30,7 @@ import os.path
 import shutil
 import optparse
 import yaml
-import BlochBuster.FFMPEGwriter
+import FFMPEGwriter
 
 
 colors = {  'bg':       [1,1,1], 
@@ -369,7 +369,7 @@ def derivs(M, t, Meq, w, w1, T1, T2):
         T2:   transverse relaxation time 
         M:    magnetization vector
         Meq:  equilibrium magnetization
-        t:    not used
+        t:    time vector (needed for scipy.integrate.odeint)
 
     Returns:
         integrand :math:`\\frac{dM}{dt}`
@@ -710,7 +710,7 @@ def polar2cartesian(polar):
 
 
 # Main program
-def Bloch(configFile, leapFactor=1, useFFMPEG=True):
+def run(configFile, leapFactor=1, useFFMPEG=True):
     # Set global constants
     global gyro
     gyro = 42577.			# Gyromagnetic ratio [kHz/T]
@@ -822,7 +822,7 @@ def main():
 
     # Parse command line
     options, arguments = p.parse_args()
-    Bloch(options.configFile, options.leapFactor)
+    run(options.configFile, options.leapFactor)
 
 if __name__ == '__main__':
     main()

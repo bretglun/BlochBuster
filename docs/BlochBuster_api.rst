@@ -3,7 +3,7 @@ API
 
 BlochBuster module
 -------------------------
-.. automodule:: BlochBuster.BlochBuster
+.. automodule:: BlochBuster
     :members:
     :undoc-members:
 
@@ -11,7 +11,7 @@ BlochBuster module
 FFMPEGwriter module
 -------------------------
 
-.. automodule:: BlochBuster.FFMPEGwriter
+.. automodule:: FFMPEGwriter
     :members:
     :undoc-members:
 

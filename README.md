@@ -13,7 +13,7 @@ BlochBuster is a nuclear magnetic resonance Bloch equation simulator written in 
 It simulates magnetization vectors based on the Bloch equations, including precession, relaxation, and excitation. 
 BlochBuster outputs animated gif or mp4 files, which can be 3D plots of the magnetization vectors, plots of transverse and longitudinal magnetization, or pulse sequence diagrams.
 Input paramaters are provided by human readable configuration files.
-The animations are made with ffmpeg.
+The animations are made using ffmpeg.
 
 CONFIG FILES
 ------------
