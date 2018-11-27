@@ -710,7 +710,18 @@ def polar2cartesian(polar):
 
 
 # Main program
-def run(configFile, leapFactor=1, useFFMPEG=True):
+def run(configFile, leapFactor=1, gifWriter='ffmpeg'):
+    # Check if gifWriter exists
+    gifWriter = gifWriter.lower()
+    if gifWriter == 'ffmpeg':
+        if not shutil.which('ffmpeg'):
+            raise Exception('FFMPEG not found')
+    elif gifWriter in ['imagemagick', 'convert']:
+        if not shutil.which('convert'):
+            raise Exception('ImageMagick (convert) not found')
+    else:
+        raise Exception('Argument gifWriter must be "ffmpeg" or "imagemagick"/"convert"')
+
     # Set global constants
     global gyro
     gyro = 42577.			# Gyromagnetic ratio [kHz/T]
@@ -762,14 +773,7 @@ def run(configFile, leapFactor=1, useFFMPEG=True):
     getText(config) # prepare text flashes for 3D plot 
     delay = int(100/config['fps']*leapFactor)  # Delay between frames in ticks of 1/100 sec
 
-    tmpdir = './tmp'
     outdir = './out'
-    if os.path.isdir(tmpdir):
-        rmTmpDir = input('Temporary folder "{}" already exists. Delete(Y/N)?'.format(tmpdir))
-        if rmTmpDir.upper() == 'Y':
-            shutil.rmtree(tmpdir)
-        else:
-            raise Exception('No files written.')
     for output in config['output']:
         if output['file']:
             if output['type'] in ['xy', 'z']:
@@ -780,12 +784,19 @@ def run(configFile, leapFactor=1, useFFMPEG=True):
                 signal /= np.max(np.abs(signal)) # scale signal relative to maximum
                 if 'scale' in output:
                     signal *= output['scale']
-            os.makedirs(outdir, exist_ok=True)
-            outfile = os.path.join(outdir, output['file'])
-            if useFFMPEG:
+            if gifWriter == 'ffmpeg':
                 ffmpegWriter = FFMPEGwriter.FFMPEGwriter(config['fps'])
             else:
+                tmpdir = './tmp'
+                if os.path.isdir(tmpdir):
+                    rmTmpDir = input('Temporary folder "{}" already exists. Delete(Y/N)?'.format(tmpdir))
+                    if rmTmpDir.upper() == 'Y':
+                        shutil.rmtree(tmpdir)
+                    else:
+                        raise Exception('No files written.')
                 os.makedirs(tmpdir, exist_ok=True)
+            os.makedirs(outdir, exist_ok=True)
+            outfile = os.path.join(outdir, output['file'])
             for frame in range(0, config['nFrames'], leapFactor):
                 # Use only every leapFactor frame in animation
                 if output['type'] == '3D':
@@ -797,14 +808,14 @@ def run(configFile, leapFactor=1, useFFMPEG=True):
                 elif output['type'] in ['xy', 'z']:
                     fig = plotFrameMT(config, signal, frame, output)
                 plt.draw()
-                if useFFMPEG:
+                if gifWriter == 'ffmpeg':
                     ffmpegWriter.addFrame(fig)
                 else: # use imagemagick: save frames temporarily 
                     file = os.path.join(tmpdir, '{}.png'.format(str(frame).zfill(4)))
                     print('Saving frame {}/{} as "{}"'.format(frame+1, config['nFrames'], file))
                     plt.savefig(file, facecolor=plt.gcf().get_facecolor())
                 plt.close()
-            if useFFMPEG:
+            if gifWriter == 'ffmpeg':
                 ffmpegWriter.write(outfile)
             else: # use imagemagick
                 print('Creating animated gif "{}"'.format(outfile))
