@@ -697,9 +697,9 @@ def rotMatrix(angle, axis):
     return np.roll(np.roll(R, axis, axis=0), axis, axis=1)
     
 
-def polar2cartesian(polar):
-    r, theta, azim = polar
-    M = np.dot(np.dot(np.array([0, 0, r]), rotMatrix(np.radians(azim), 1)), rotMatrix(np.radians(theta), 2))
+def spherical2cartesian(spherical):
+    r, polar, azim = spherical
+    M = np.dot(np.dot(np.array([0, 0, r]), rotMatrix(np.radians(azim), 1)), rotMatrix(np.radians(polar), 2))
     return list(M)
 
 
@@ -751,11 +751,11 @@ def run(configFile, leapFactor=1, gifWriter='ffmpeg'):
                         Meq = 0.0
                     if 'M0' in config and component['name'] in config['M0']:
                         try:
-                            M0 = polar2cartesian(config['M0'][component['name']][z][y][x])
+                            M0 = spherical2cartesian(config['M0'][component['name']][z][y][x])
                         except:
                             raise Exception('Is the "M0" matrix shape equal for all components?')
                     elif 'M0' in config and isinstance(config['M0'], list):
-                        M0 = polar2cartesian(config['M0'][z][y][x])
+                        M0 = spherical2cartesian(config['M0'][z][y][x])
                     else:
                         M0 = None
                     xpos = (x+.5-config['nx']/2)*config['locSpacing']
