@@ -349,12 +349,6 @@ def plotFramePSD(config, frame, output):
     return fig
 
 
-def radians(degrees): return degrees*np.pi/180
-
-
-def degrees(radians): return radians*180./np.pi
-
-
 # Apply spoiling of the transversal magnetization
 def spoil(M): return np.array([0, 0, M[2]])
 
@@ -557,8 +551,8 @@ def checkPulseSeq(config):
             else:
                 event['nFrames'] = int(np.round(abs(event['FA'])*config['fps']/90)) # one sec per 90 flip
             if 'phase' in event: # Set complex flip angles
-                event['FA'] = event['FA']*np.exp(1j*radians(event['phase']))
-            event['w1'] = radians(event['FA'])/(event['nFrames']*dt)
+                event['FA'] = event['FA']*np.exp(1j*np.radians(event['phase']))
+            event['w1'] = np.radians(event['FA'])/(event['nFrames']*dt)
 
         if any(key in event for key in ['Gx', 'Gy', 'Gz']): # Gradient (no RF)
             if not ('dur' in event and event['dur']>0):
