@@ -28,7 +28,7 @@ import numpy as np
 import scipy.integrate as integrate
 import os.path
 import shutil
-import optparse
+import argparse
 import yaml
 import FFMPEGwriter
 
@@ -816,13 +816,19 @@ def run(configFile, leapFactor=1, useFFMPEG=True):
 # Command line parser
 def main():
     # Initiate command line parser
-    p = optparse.OptionParser()
-    p.add_option('--configFile', '-c', default='',  type="string", help="Name of configuration text file")
-    p.add_option('--leapFactor', '-l', default=1, type="int", help="Leap factor for smaller filesize and fewer frames per second")
+    parser = argparse.ArgumentParser(description='Simulate magnetization vectors using Bloch equations and create animated gif')
+    parser.add_argument('--configFile', '-c',
+                        help="Name of configuration text file",
+                        type=str,
+                        default='')
+    parser.add_argument('--leapFactor', '-l',
+                        help="Leap factor for smaller filesize and fewer frames per second",
+                        type=int,
+                        default=1)
 
     # Parse command line
-    options, arguments = p.parse_args()
-    run(options.configFile, options.leapFactor)
+    args = parser.parse_args()
+    run(args.configFile, args.leapFactor)
 
 if __name__ == '__main__':
     main()
