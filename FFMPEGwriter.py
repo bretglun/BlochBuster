@@ -1,6 +1,8 @@
 import subprocess
 
 class FFMPEGwriter:
+    '''Writer class that can add matplotlib figures as frames and then write gif or mp4 using FFMPEG. '''
+    
     def __init__(self, fps=15):
         self.fps = fps
         self.frames = []
@@ -8,11 +10,25 @@ class FFMPEGwriter:
         self.height = None
 
     def addFrame(self, fig):
+        '''Add matplotlib figure to frame list. 
+        
+        Args:
+            fig: matplotlib figure.
+
+        '''
+
         if not (self.width or self.height):
             self.width, self.height = fig.canvas.get_width_height()
         self.frames.append(fig.canvas.tostring_rgb()) # extract the image as an RGB string
 
     def write(self, filename):
+        '''Write frames to gif or mp4 using FFMPEG. 
+        
+        Args:
+            filename: name of output file. File ending must be ".gif" or ".mp4".
+
+        '''
+
         if '.gif' in filename:
             paletteCmd = ('ffmpeg', 
                 '-s', '{}x{}'.format(self.width, self.height), 

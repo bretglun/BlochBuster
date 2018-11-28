@@ -14,7 +14,12 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-''' BlochBuster is a simulator of Bloch equations
+'''
+BlochBuster is a nuclear magnetic resonance Bloch equation simulator written in Python. 
+It simulates magnetization vectors based on the Bloch equations, including precession, relaxation, and excitation. 
+BlochBuster outputs animated gif or mp4 files, which can be 3D plots of the magnetization vectors, plots of transverse and longitudinal magnetization, or pulse sequence diagrams.
+Input paramaters are provided by human readable configuration files.
+The animations are made using ffmpeg.
 '''
 
 import mpl_toolkits.mplot3d.art3d as art3d
@@ -55,6 +60,7 @@ colors = {  'bg':       [1,1,1],
             }
 
 class Arrow3D(FancyArrowPatch):
+    '''Matplotlib FancyArrowPatch for 3D rendering.'''
     def __init__(self, xs, ys, zs, *args, **kwargs):
         FancyArrowPatch.__init__(self, (0, 0), (0, 0), *args, **kwargs)
         self._verts3d = xs, ys, zs
@@ -66,8 +72,19 @@ class Arrow3D(FancyArrowPatch):
         FancyArrowPatch.draw(self, renderer)
 
 
-# Creates an animated plot of magnetization in a 3D view
 def plotFrame3D(config, vectors, frame, output):
+    '''Creates a plot of magnetization vectors in a 3D view.
+    
+    Args:
+        config: configuration dictionary.
+	vectors:    numpy array of size [nx, ny, nz, nComps, nIsochromats, 3, nFrames].
+        frame:  which frame to plot.
+        output: specification of desired output (dictionary from config).
+
+    Returns:
+        plot figure.
+
+    '''
     nx, ny, nz, nComps, nIsoc = vectors.shape[:5]
     if config['collapseLocations']:
         xpos = np.zeros([nx])
@@ -183,8 +200,19 @@ def plotFrame3D(config, vectors, frame, output):
     return fig
 
 
-# Creates an animated plot of magnetization over time output type='xy' for transversal and 'z' for longitudinal
 def plotFrameMT(config, signal, frame, output):
+    '''Creates a plot of transversal or longituinal magnetization over time.
+    
+    Args:
+        config: configuration dictionary.
+	signal: numpy array of size [nComps, 3, nFrames].
+        frame:  which frame to plot up to.
+        output: specification of desired output (dictionary from config).
+
+    Returns:
+        plot figure.
+
+    '''
     if output['type'] not in ['xy', 'z']:
         raise Exception('output "type" must be 3D, kspace, psd, xy (transversal) or z (longitudinal)')
 
@@ -260,6 +288,17 @@ def plotFrameMT(config, signal, frame, output):
 
 
 def plotFrameKspace(config, frame, output):
+    '''Creates a plot of k-space position for the given frame.
+    
+    Args:
+        config: configuration dictionary.
+        frame:  which frame to plot.
+        output: specification of desired output (dictionary from config).
+
+    Returns:
+        plot figure.
+
+    '''
     #TODO: support for 3D k-space
     kmax = 1/(2*config['locSpacing'])
     xmin, xmax = -kmax, kmax
@@ -295,6 +334,17 @@ def plotFrameKspace(config, frame, output):
 
 
 def plotFramePSD(config, frame, output):
+    '''Creates a plot of the pulse sequence diagram.
+    
+    Args:
+        config: configuration dictionary.
+        frame:  which frame to indicate by vertical line.
+        output: specification of desired output (dictionary from config).
+
+    Returns:
+        plot figure.
+
+    '''
     xmin, xmax = 0, config['kernelClock'][-1]
     ymin, ymax = 0, 5
     fig = plt.figure(figsize=(5, 5), facecolor=colors['bg'], dpi=output['dpi'])
@@ -350,20 +400,30 @@ def plotFramePSD(config, frame, output):
 
 
 # Apply spoiling of the transversal magnetization
-def spoil(M): return np.array([0, 0, M[2]])
+def spoil(M):
+    '''Spoil the transversal magnetization in magnetization vector.
+    
+    Args:
+        M: magnetization vector, numpy array of size 3.
+        
+    Returns:
+        spoiled magnetization vector, numpy array of size 3.
+
+    '''
+    return np.array([0, 0, M[2]])
 
 
 def derivs(M, t, Meq, w, w1, T1, T2):
-    '''Bloch equations in rotating frame 
+    '''Bloch equations in rotating frame.
 
     Args:
-        w:    Larmor frequency :math:`2\\pi\\gamma B_0` [kRad] 
-	w1 (complex):   B1 rotation frequency :math:`2\\pi\\gamma B_1`  [kRad]
-        T1:   longitudinal relaxation time 
-        T2:   transverse relaxation time 
-        M:    magnetization vector
-        Meq:  equilibrium magnetization
-        t:    time vector (needed for scipy.integrate.odeint)
+        w:    Larmor frequency :math:`2\\pi\\gamma B_0` [kRad].
+	w1 (complex):   B1 rotation frequency :math:`2\\pi\\gamma B_1`  [kRad].
+        T1:   longitudinal relaxation time.
+        T2:   transverse relaxation time.
+        M:    magnetization vector.
+        Meq:  equilibrium magnetization.
+        t:    time vector (needed for scipy.integrate.odeint).
 
     Returns:
         integrand :math:`\\frac{dM}{dt}`
@@ -377,8 +437,24 @@ def derivs(M, t, Meq, w, w1, T1, T2):
     return dMdt
 
 
-# Simulate magnetization vector during nTR applications of pulseSeq
 def applyPulseSeq(config, Meq, M0, w, T1, T2, xpos=0, ypos=0, zpos=0):
+    '''Simulate magnetization vector during nTR applications of pulse sequence.
+    
+    Args:
+        config: configuration dictionary.
+        Meq:    equilibrium magnetization along z axis.
+        M0:     initial state of magnetization vector, numpy array of size 3.
+        w:      Larmor frequency :math:`2\\pi\\gamma B_0` [kRad].
+        T1:     longitudinal relaxation time.
+        T2:     transverse relaxation time.
+        xpos:   position of magnetization vector along x gradient.
+        ypos:   position of magnetization vector along y gradient.
+        zpos:   position of magnetization vector along z gradient.
+        
+    Returns:
+        magnetization vector over time, numpy array of size [3, nFrames]
+
+    '''
     M = np.zeros([config['nFrames']+1, 3])
     M[0] = M0 # Initial state
     for rep in range(config['nTR']):
@@ -423,8 +499,22 @@ def applyPulseSeq(config, Meq, M0, w, T1, T2, xpos=0, ypos=0, zpos=0):
     return M[:-1].transpose()
 
 
-# Simulate Nisochromats dephasing magnetization vectors per component
 def simulateComponent(config, component, Meq, M0=None, xpos=0, ypos=0, zpos=0):
+    ''' Simulate nIsochromats magnetization vectors per component with uniform distribution of Larmor frequencies.
+
+    Args:
+        config: configuration dictionary.
+        component:  component specification from config.
+        Meq:    equilibrium magnetization along z axis.
+        M0:     initial state of magnetization vector, numpy array of size 3.
+        xpos:   position of magnetization vector along x gradient.
+        ypos:   position of magnetization vector along y gradient.
+        zpos:   position of magnetization vector along z gradient.
+        
+    Returns:
+        component magnetization vectors over time, numpy array of size [nIsochromats, 3, nFrames]
+
+    '''
     if not M0:
         M0 = [0, 0, Meq] # Default initial state is equilibrium magnetization
     # Shifts in ppm for dephasing vectors:
@@ -437,8 +527,14 @@ def simulateComponent(config, component, Meq, M0=None, xpos=0, ypos=0, zpos=0):
     return comp
 
 
-# Get opacity and text for spoiler and RF text flashes in 3D plot
 def getText(config):
+    ''' Get opacity and text for spoiler and RF text flashes in 3D plot and store in config.
+    
+    Args:
+        config: configuration dictionary.
+        
+    '''
+
     framesSinceSpoil = np.full([config['nFrames']+1], np.inf, dtype=int)
     framesSinceRF = np.full([config['nFrames']+1], np.inf, dtype=int)
     framesSinceG = np.full([config['nFrames']+1], np.inf, dtype=int)
@@ -496,6 +592,13 @@ def getText(config):
 
 
 def checkPulseSeq(config):
+    ''' Check and setup pulse sequence given by config. Set clock and store in config.
+    
+    Args:
+        config: configuration dictionary.
+        
+    '''
+
     if 'pulseSeq' not in config:
         config['pulseSeq'] = []
     allowedKeys = ['t', 'spoil', 'dur', 'FA', 'B1', 'phase', 'Gx', 'Gy', 'Gz']
@@ -580,18 +683,24 @@ def checkPulseSeq(config):
     for rep in range(config['nTR']):
         config['clock'] = np.append(config['clock'][:-1], config['clock'][-1]+t)
 
-def arrangeLocations(slices, config, M0=False):
-    if M0:
-        key = 'M0'
-    else:
-        key = 'locations'
+def arrangeLocations(slices, config, key='locations'):
+    ''' Check and setup locations or M0. Set nx, ny, and nz and store in config.
+    
+    Args:
+        slices: (nested) list of M0 or locations (spatial distribution of Meq).
+        config: configuration dictionary.
+        key:    pass 'locations' for Meq distribution, and 'M0' for M0 distribution.
+        
+    '''
+    if key not in ['M0', 'locations']:
+        raise Exception('Argument "key" must be "locations" or "M0", not {}'.format(key))
     if not isinstance(slices, list):
-        raise Exception('Did not expect {} in config "locations"'.format(type(slices)))
+        raise Exception('Expected list in config "{}", not {}'.format(key, type(slices)))
     if not isinstance(slices[0], list):
         slices = [slices]
     if not isinstance(slices[0][0], list):
         slices = [slices]
-    if M0 and not isinstance(slices[0][0][0], list):
+    if key=='M0' and not isinstance(slices[0][0][0], list):
         slices = [slices]
     if 'nz' not in config:
         config['nz'] = len(slices)
@@ -605,12 +714,18 @@ def arrangeLocations(slices, config, M0=False):
         config['nx'] = len(slices[0][0])
     elif len(slices[0][0])!=config['nx']:
         raise Exception('Config "{}": number of elements do not match'.format(key))
-    if M0 and len(slices[0][0][0])!=3:
-        raise Exception('Config "M0": inner dimension must be of length 3')
+    if key=='M0' and len(slices[0][0][0])!=3:
+        raise Exception('Config "{}": inner dimension must be of length 3'.format(key))
     return slices
 
 
 def checkConfig(config):
+    ''' Check and setup config.
+    
+    Args:
+        config: configuration dictionary.
+        
+    '''
     if any([key not in config for key in ['TR', 'B0', 'speed', 'output']]):
         raise Exception('Config must contain "TR", "B0", "speed", and "output"')
     if 'title' not in config:
@@ -667,12 +782,12 @@ def checkConfig(config):
     if 'M0' in config:
         if isinstance(config['M0'], dict):
             for comp in iter(config['M0']):
-                config['M0'][comp] = arrangeLocations(config['M0'][comp], config, M0=True)
+                config['M0'][comp] = arrangeLocations(config['M0'][comp], config, 'M0')
         elif isinstance(config['M0'], list):
             M0 = config['M0']
             config['M0'] = {}
             for comp in [n['name'] for n in config['components']]:
-                config['M0'][comp] = arrangeLocations(M0, config, M0=True)
+                config['M0'][comp] = arrangeLocations(M0, config, 'M0')
         else:
             raise Exception('Config "M0" should be list or components dict')
     
@@ -692,19 +807,45 @@ def checkConfig(config):
 
 
 def rotMatrix(angle, axis):
+    '''Get 3D rotation matrix.
+    
+    Args:
+        angle:  rotation angle in radians.
+        axis:   axis of rotation (0, 1, or 2).
+        
+    Returns:
+        rotation matrix, numpy array of size [3, 3]
+
+    '''
     c, s = np.cos(angle), np.sin(angle)
     R = np.array([[1,0,0], [0,c,-s], [0,s,c]])
     return np.roll(np.roll(R, axis, axis=0), axis, axis=1)
     
 
 def spherical2cartesian(spherical):
+    '''Convert 3D vector from spherical to Cartesian coordinates.
+    
+    Args:
+        spherical: 3-tuple holding vector length, polar, and azimuthal angle
+        
+    Returns:
+        Cartesian vector, list of size 3
+
+    '''
     r, polar, azim = spherical
     M = np.dot(np.dot(np.array([0, 0, r]), rotMatrix(np.radians(azim), 1)), rotMatrix(np.radians(polar), 2))
     return list(M)
 
 
-# Main program
 def run(configFile, leapFactor=1, gifWriter='ffmpeg'):
+    ''' Main program. Read and setup config, simulate magnetization vectors and write animated gif.
+        
+    Args:
+        configFile: YAML file specifying configuration.
+        leapFactor: Skip frame factor for faster processing and smaller filesize.
+        gifWriter:  external program to write gif. Must be "ffmpeg" or "imagemagick"/"convert".
+        
+    '''
     # Check if gifWriter exists
     gifWriter = gifWriter.lower()
     if gifWriter == 'ffmpeg':
@@ -818,8 +959,9 @@ def run(configFile, leapFactor=1, gifWriter='ffmpeg'):
                 shutil.rmtree(tmpdir)
 
 
-# Command line parser
-def main():
+def parseAndRun():
+    ''' Command line parser. Parse command line and run main program. '''
+
     # Initiate command line parser
     parser = argparse.ArgumentParser(description='Simulate magnetization vectors using Bloch equations and create animated gif')
     parser.add_argument('--configFile', '-c',
@@ -833,7 +975,9 @@ def main():
 
     # Parse command line
     args = parser.parse_args()
+
+    # Run main program
     run(args.configFile, args.leapFactor)
 
 if __name__ == '__main__':
-    main()
+    parseAndRun()
