@@ -655,7 +655,7 @@ def checkPulseSeq(config):
                 event['nFrames'] = int(np.round(abs(event['FA'])*config['fps']/90)) # one sec per 90 flip
             if 'phase' in event: # Set complex flip angles
                 event['FA'] = event['FA']*np.exp(1j*np.radians(event['phase']))
-            event['w1'] = np.radians(event['FA'])/(event['nFrames']*dt)
+            event['w1'] = event['FA'] * (np.pi/180) / (event['nFrames'] * dt)
 
         if any(key in event for key in ['Gx', 'Gy', 'Gz']): # Gradient (no RF)
             if not ('dur' in event and event['dur']>0):
