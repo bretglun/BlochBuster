@@ -1,5 +1,7 @@
+#!/usr/bin/env python3
+
 # -*- coding: utf-8 -*-
-# Copyright (c) 2017-2018 Johan Berglund
+# Copyright (c) 2017-2019 Johan Berglund
 # BlochBuster is distributed under the terms of the GNU General Public License
 #
 # This program is free software: you can redistribute it and/or modify
