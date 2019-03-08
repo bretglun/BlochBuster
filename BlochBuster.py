@@ -593,12 +593,22 @@ def getText(config):
     config['RFalpha'] = [max(1.0-frames/config['fps'], 0) for frames in framesSinceRF]
 
 
+def roundEventTime(time):
+    return np.round(time, decimals=6) # nanosecond precision should be enough
+
+
+def addEventsToTimeVector(t, pulseSeq):
+    t = list(t)
+    for event in pulseSeq:
+        t.append(event['t'])
+    return np.unique(roundEventTime(np.array(t)))
+
+
 def checkPulseSeq(config):
-    ''' Check and setup pulse sequence given by config. Set clock and store in config.
+    ''' Check/verify pulse sequence given by config.
     
     Args:
         config: configuration dictionary.
-        
     '''
 
     if 'pulseSeq' not in config:
@@ -609,34 +619,29 @@ def checkPulseSeq(config):
             if item not in allowedKeys:
                 raise Exception('PulseSeq key "{}" not supported'.format(item))
         if not 't' in event:
-            raise Exception('All pulseSeq events must have an event time "t"')    
-
-    # Sort pulseSeq according to event time
-    config['pulseSeq'] = sorted(config['pulseSeq'], key=lambda event: event['t'])
-    
-    t = np.array([0.0])
-    dt = config['dt']
-    for event in config['pulseSeq']:
-        T = np.round(event['t']/dt)*dt-t[-1] # time up to event
-        if T<0:
-            raise Exception('Pulse sequence events overlap')
-        t = np.append(t[:-1], t[-1]+np.linspace(0, T, np.round(T/dt)+1, endpoint=True))
-        event['frame'] = len(t)-1 # starting frame of event
-            
+            raise Exception('All pulseSeq events must have an event time "t"')
+        else:
+            event['t'] = roundEventTime(event['t'])
+        if not any(key in event for key in ['FA', 'B1', 'Gx', 'Gy', 'Gz', 'spoil']):
+            raise Exception('Empty events not allowed')
+        if roundEventTime(event['t']) > config['TR']:
+            raise Exception('pulseSeq event t exceeds TR')
+        if 'dur' in event and roundEventTime(event['t'] + event['dur']) > config['TR']:
+            raise Exception('pulseSeq event t+dur exceeds TR')
         if 'spoil' in event: # Spoiler event
-            if any(key in event for key in ['dur', 'FA', 'B1', 'phase', 'Gx', 'Gy', 'Gz']):
+            if not event['spoil']:
+                raise Exception('Spoiler event must have spoil: true')
+            if any([key not in ['t', 'spoil'] for key in event]):
                 raise Exception('Spoiler event should only have event time t and spoil: true')
-            event['dur'] = 0
-            event['nFrames'] = 0
-
-        if 'FA' in event or 'B1' in event: # RF-pulse (possibly with gradient)
+        # TODO: generalize RF pulse events here!
+        if 'FA' in event or 'B1' in event: # RF-pulse event (possibly with gradient)
             if all(key in event for key in ['FA', 'B1', 'dur']):
                 raise Exception('RF-pulse over-determined. Provide only two out of "FA", "B1", and "dur"')
             if 'B1' not in event and 'dur' not in event:
                 if 'B1' in config:
                     event['B1'] = config['B1'] # use "global" B1
                 else:
-                    event['B1'] = 'inf' # "instant" RF-pulse            
+                    event['B1'] = 'inf' # "instant" RF-pulse          
             if 'B1' in event: 
                 if event['B1'] == 'inf': # handle "instant" RF pulse, specified by B1: inf
                     if 'dur' in event:
@@ -651,39 +656,95 @@ def checkPulseSeq(config):
                 event['dur'] = abs(event['FA'])/(360*gyro*event['B1']*1e-6) # RF pulse duration
             if 'FA' not in event:
                 event['FA'] = 360*(event['dur']*gyro*event['B1']*1e-6) # calculate prescribed FA
-            if event['dur']>0:
-                event['nFrames'] = int(max(np.round(event['dur']/dt), 1))
-            else:
-                event['nFrames'] = int(np.round(abs(event['FA'])*config['fps']/90)) # one sec per 90 flip
             if 'phase' in event: # Set complex flip angles
                 event['FA'] = event['FA']*np.exp(1j*np.radians(event['phase']))
-            event['w1'] = event['FA'] * (np.pi/180) / (event['nFrames'] * dt)
-
+            event['w1'] = event['FA'] * (np.pi/180) / event['dur']
         if any(key in event for key in ['Gx', 'Gy', 'Gz']): # Gradient (no RF)
             if not ('dur' in event and event['dur']>0):
                 raise Exception('Gradient must have a specified duration>0 (dur [ms])')
             if 'FA' not in event and 'phase' in event:
                 raise Exception('Gradient event should have no phase')
-            event['nFrames'] = int(max(np.round(event['dur']/dt), 1))
-            if 'Gx' in event:
-                Gx = event['Gx']*event['nFrames']*dt/event['dur'] # adjust Gx for truncation of duration
-            if 'Gy' in event:
-                Gy = event['Gy']*event['nFrames']*dt/event['dur'] # adjust Gy for truncation of duration
-            if 'Gz' in event:
-                Gz = event['Gz']*event['nFrames']*dt/event['dur'] # adjust Gz for truncation of duration
-            
-        if event['dur']>0:
-            event['dur'] = event['nFrames']*dt  # truncate duration to whole frames
-        t = np.append(t[:-1], t[-1]+np.linspace(0, event['dur'], event['nFrames']+1, endpoint=True))
+            for G in ['Gx', 'Gy', 'Gz']:
+                if G in event:
+                    try:
+                        event[G] = float(event[G])
+                    except ValueError:
+                        print('{} must be a number'.format(G))
+                        raise ValueError
+
+
+def emptyEvent():
+    return {'B1': 0, 'Gx': 0, 'Gy': 0, 'Gz': 0, 'spoil': False}
+
+
+def mergeEvent(event, event2merge, t):
+    for channel in ['B1', 'Gx', 'Gy', 'Gz']:
+        if channel in event2merge:
+            event[channel] += event2merge[channel]
+    if 'spoil' in event2merge:
+        event['spoil'] = True
+    else:
+        event['spoil'] = False
+    event['t'] = t
+    return event
+
+
+def detachEvent(event, event2detach, t):
+    for channel in ['B1', 'Gx', 'Gy', 'Gz']:
+        if channel in event2detach:
+            event[channel] -= event2detach[channel]
+    event['t'] = t
+    return event
+
+
+def setupPulseSeq(config):
+    ''' Check and setup pulse sequence given by config. Set clock and store in config.
+    
+    Args:
+        config: configuration dictionary.
         
-    T = np.ceil(config['TR']/dt)*dt-t[-1] # time up to TR
-    if np.round(T/dt)<0:
-        raise Exception('Pulse sequence events not within TR')
-    t = np.append(t[:-1], t[-1]+np.linspace(0, T, np.round(T/dt)+1, endpoint=True))
-    config['kernelClock'] = t
-    config['clock'] = np.array([0])
-    for rep in range(config['nTR']):
-        config['clock'] = np.append(config['clock'][:-1], config['clock'][-1]+t)
+    '''
+
+    checkPulseSeq(config)
+
+    # Sort pulseSeq according to event time
+    config['pulseSeq'] = sorted(config['pulseSeq'], key=lambda event: event['t'])
+    
+    # Create new non-overlapping events, including empty "relaxation" events
+    newPulseSeq = []
+    ongoingEvents = []
+    newEvent = emptyEvent() # Start with empty "relaxation event"
+    newEvent['t'] = 0
+    for i, event in enumerate(config['pulseSeq']):
+        # Merge any events starting simultaneously:
+        if event['t']==newEvent['t']:
+            newEvent = mergeEvent(newEvent, event, event['t'])
+        else:
+            newPulseSeq.append(dict(newEvent))
+            newEvent = mergeEvent(newEvent, event, event['t'])
+        if 'dur' in event: # event is ongoing unless no 'dur', i.e. spoiler event
+                ongoingEvents.append(event)
+                # sort ongoingevents according to event end time:
+                sorted(ongoingEvents, key=lambda event: event['t'] + event['dur'], reverse=False)
+        if event is config['pulseSeq'][-1]:
+            nextEventTime = config['TR']
+        else:
+            nextEventTime = config['pulseSeq'][i+1]['t']
+        for stoppingEvent in [event for event in ongoingEvents[::-1] if roundEventTime(event['t'] + event['dur']) <= nextEventTime]:
+            newPulseSeq.append(dict(newEvent))
+            newEvent = detachEvent(newEvent, stoppingEvent, roundEventTime(stoppingEvent['t'] + stoppingEvent['dur']))
+            ongoingEvents.pop()
+    newPulseSeq.append(dict(newEvent))
+
+    config['pulseSeq'] = newPulseSeq
+
+    # Set clock vector
+    config['t'] = np.arange(0, config['TR'], config['dt']) # kernel time vector
+    config['t'] = addEventsToTimeVector(config['t'], config['pulseSeq'])
+    for rep in range(1, config['nTR']): # Repeat time vector for each TR
+        config['t'] = np.concatenate((config['t'], roundEventTime(config['t'] + rep * config['TR'])), axis=None)
+    config['t'] = np.concatenate((config['t'], roundEventTime(config['nTR'] * config['TR'])), axis=None) # Add end time to time vector
+    
 
 def arrangeLocations(slices, config, key='locations'):
     ''' Check and setup locations or M0. Set nx, ny, and nz and store in config.
@@ -732,6 +793,7 @@ def checkConfig(config):
         raise Exception('Config must contain "TR", "B0", "speed", and "output"')
     if 'title' not in config:
         config['title'] = ''
+    config['TR'] = roundEventTime(config['TR'])
     if 'nTR' not in config:
         config['nTR'] = 1
     if 'nIsochromats' not in config:
@@ -755,10 +817,13 @@ def checkConfig(config):
         config['fps'] = 15 # Frames per second in animation (<=15 should be supported by powepoint)
     
     # calculations
-    config['dt'] = 1e3/config['fps']*config['speed'] # Time resolution [msec]
+    config['dt'] = 1e3/config['fps']*config['speed'] # Animation time resolution [msec]
     config['w0'] = 2*np.pi*gyro*config['B0'] # Larmor frequency [kRad/s]
 
-    checkPulseSeq(config)
+    setupPulseSeq(config)
+
+    # TODO: resample frames to be 
+
     config['nFrames'] = len(config['clock'])-1
     config['nFramesPerTR'] = len(config['kernelClock'])-1
 
