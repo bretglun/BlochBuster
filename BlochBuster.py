@@ -150,7 +150,7 @@ def plotFrame3D(config, vectors, frame, output):
     fig.text(.5, 1, config['title'], fontsize=14, horizontalalignment='center', verticalalignment='top', color=colors['text'])
 
     # Draw time
-    time_text = fig.text(0, 0, 'time = %.1f msec' % (config['clock'][frame%(len(config['clock'])-1)]), color=colors['text'], verticalalignment='bottom')
+    time_text = fig.text(0, 0, 'time = %.1f msec' % (config['t'][frame%(len(config['t'])-1)]), color=colors['text'], verticalalignment='bottom')
 
     # TODO: put isochromats in this order from start
     order = [int((nIsoc-1)/2-abs(m-(nIsoc-1)/2)) for m in range(nIsoc)]
@@ -219,7 +219,7 @@ def plotFrameMT(config, signal, frame, output):
         raise Exception('output "type" must be 3D, kspace, psd, xy (transversal) or z (longitudinal)')
 
     # create diagram
-    xmin, xmax = 0, config['clock'][-1]
+    xmin, xmax = 0, config['t'][-1]
     if output['type'] == 'xy':
         if 'abs' in output and not output['abs']:
             ymin, ymax = -1, 1
@@ -266,25 +266,25 @@ def plotFrameMT(config, signal, frame, output):
         for c in range(nComps):
             col = colors['comps'][c % len(colors['comps'])]
             if 'abs' in output and not output['abs']: # real and imag part of transversal magnetization
-                ax.plot(config['clock'][:frame+1], signal[c,0,:frame+1], '-', lw=2, color=col)
+                ax.plot(config['t'][:frame+1], signal[c,0,:frame+1], '-', lw=2, color=col)
                 col = colors['comps'][c+nComps+1 % len(colors['comps'])]
-                ax.plot(config['clock'][:frame+1], signal[c,1,:frame+1], '-', lw=2, color=col)
+                ax.plot(config['t'][:frame+1], signal[c,1,:frame+1], '-', lw=2, color=col)
             else: # absolute value of transversal magnetization
-                ax.plot(config['clock'][:frame+1], np.linalg.norm(signal[c,:2,:frame+1], axis=0), '-', lw=2, color=col)
+                ax.plot(config['t'][:frame+1], np.linalg.norm(signal[c,:2,:frame+1], axis=0), '-', lw=2, color=col)
         # plot sum component if both water and fat (special case)
         if all(key in [comp['name'] for comp in config['components']] for key in ['water', 'fat']):
             col = colors['comps'][nComps % len(colors['comps'])]
             if 'abs' in output and not output['abs']: # real and imag part of transversal magnetization
-                ax.plot(config['clock'][:frame+1], np.mean(signal[:,0,:frame+1],0), '-', lw=2, color=col)
+                ax.plot(config['t'][:frame+1], np.mean(signal[:,0,:frame+1],0), '-', lw=2, color=col)
                 col = colors['comps'][2*nComps+1 % len(colors['comps'])]
-                ax.plot(config['clock'][:frame+1], np.mean(signal[:,1,:frame+1],0), '-', lw=2, color=col)
+                ax.plot(config['t'][:frame+1], np.mean(signal[:,1,:frame+1],0), '-', lw=2, color=col)
             else: # absolute value of transversal magnetization
-                ax.plot(config['clock'][:frame+1], np.linalg.norm(np.mean(signal[:,:2,:frame+1],0), axis=0), '-', lw=2, color=col)
+                ax.plot(config['t'][:frame+1], np.linalg.norm(np.mean(signal[:,:2,:frame+1],0), axis=0), '-', lw=2, color=col)
 
     elif output['type'] == 'z':
         for c in range(nComps):
             col = colors['comps'][(c) % len(colors['comps'])]
-            ax.plot(config['clock'][:frame+1], signal[c,2,:frame+1], '-', lw=2, color=col)
+            ax.plot(config['t'][:frame+1], signal[c,2,:frame+1], '-', lw=2, color=col)
 
     return fig
 
@@ -457,48 +457,45 @@ def applyPulseSeq(config, Meq, M0, w, T1, T2, xpos=0, ypos=0, zpos=0):
         magnetization vector over time, numpy array of size [3, nFrames]
 
     '''
-    M = np.zeros([config['nFrames']+1, 3])
+    M = np.zeros([len(config['t']), 3])
     M[0] = M0 # Initial state
-    for rep in range(config['nTR']):
-        TRframe = rep * config['nFramesPerTR'] #starting frame of TR
-        frame = 0 #frame within TR
-        for event in config['pulseSeq']:
-            # Relaxation up to event
-            T = config['kernelClock'][event['frame']]-config['kernelClock'][frame]
-            t = np.linspace(0, T, event['frame']-frame+1, endpoint=True)
-            M[TRframe+frame:TRframe+event['frame']+1] = integrate.odeint(derivs, M[TRframe+frame], t, args=(Meq, w, 0., T1, T2))
-            frame = event['frame']
 
-            wg = w  # frequency due to w plus any gradients
-            if 'w1' in event:
-                w1 = event['w1']
+    for rep in range(config['nTR']):
+        TRstartFrame = rep * config['nFramesPerTR']
+
+        for i, event in enumerate(config['pulseSeq']):
+            try:
+                firstFrame = np.where(config['t']==event['t'])[0][0] + TRstartFrame
+            except IndexError:
+                print('Event time not found in time vector')
+                raise
+            
+            if event is config['pulseSeq'][-1]: 
+                nextEventTime = config['TR']
             else:
-                w1 = 0
-            t = np.linspace(0, event['nFrames']*config['dt'], event['nFrames']+1, endpoint=True)
+                nextEventTime = config['pulseSeq'][i+1]['t']
+            try:
+                lastFrame = np.where(config['t']==nextEventTime)[0][0] + TRstartFrame
+            except IndexError:
+                print('Event time not found in time vector')
+                raise
+
+            M0 = M[firstFrame]
 
             if 'spoil' in event and event['spoil']: # Spoiler event
-                M[TRframe+frame] = spoil(M[TRframe+frame])
-            else:
-                if 'FA' in event and event['dur']==0: # "instant" RF-pulse event (incompatible with gradient)
-                    M[TRframe+frame:TRframe+frame+event['nFrames']+1] = integrate.odeint(derivs, M[TRframe+frame], t, args=(Meq, 0., w1, np.inf, np.inf))
-                else: # RF-pulse and/or gradient event
-                    if any(key in event for key in ['Gx', 'Gy', 'Gz']): # Gradient present
-                        if 'Gx' in event:
-                            wg += 2*np.pi*gyro*event['Gx']*xpos/1000 # [krad/s]
-                        if 'Gy' in event:
-                            wg += 2*np.pi*gyro*event['Gy']*ypos/1000 # [krad/s]
-                        if 'Gz' in event:
-                            wg += 2*np.pi*gyro*event['Gz']*zpos/1000 # [krad/s]
-                    M[TRframe+frame:TRframe+frame+event['nFrames']+1] = integrate.odeint(derivs, M[TRframe+frame], t, args=(Meq, wg, w1, T1, T2))
+                M0 = spoil(M0)
 
-            frame += event['nFrames']
+            wg = w  # frequency due to w plus any gradients
+            wg += 2*np.pi*gyro*event['Gx']*xpos/1000 # [krad/s]
+            wg += 2*np.pi*gyro*event['Gy']*ypos/1000 # [krad/s]
+            wg += 2*np.pi*gyro*event['Gz']*zpos/1000 # [krad/s]
 
-        # Then relaxation until end of TR
-        T = config['kernelClock'][-1]-config['kernelClock'][frame]
-        t = np.linspace(0, T, config['nFramesPerTR']-frame+1, endpoint=True)
-        M1 = integrate.odeint(derivs, M[TRframe+frame], t, args=(Meq, w, 0., T1, T2))
-        M[TRframe+frame:(rep+1)*config['nFramesPerTR']+1] = M1
-    return M[:-1].transpose()
+            w1 = event['w1']
+
+            t = config['t'][firstFrame:lastFrame+1]
+            M[firstFrame:lastFrame+1] = integrate.odeint(derivs, M0, t, args=(Meq, wg, w1, T1, T2)) # Solve Bloch equation
+
+    return M.transpose()
 
 
 def simulateComponent(config, component, Meq, M0=None, xpos=0, ypos=0, zpos=0):
@@ -521,7 +518,7 @@ def simulateComponent(config, component, Meq, M0=None, xpos=0, ypos=0, zpos=0):
         M0 = [0, 0, Meq] # Default initial state is equilibrium magnetization
     # Shifts in ppm for dephasing vectors:
     isochromats = [(2*i+1-config['nIsochromats'])/2*config['isochromatStep']+component['CS'] for i in range(0, config['nIsochromats'])]
-    comp = np.empty((config['nIsochromats'],3,config['nFrames']))
+    comp = np.empty((config['nIsochromats'],3,len(config['t'])))
 
     for m, isochromat in enumerate(isochromats):
         w = config['w0']*isochromat*1e-6  # Demodulated frequency [krad]
@@ -674,11 +671,11 @@ def checkPulseSeq(config):
 
 
 def emptyEvent():
-    return {'B1': 0, 'Gx': 0, 'Gy': 0, 'Gz': 0, 'spoil': False}
+    return {'w1': 0, 'Gx': 0, 'Gy': 0, 'Gz': 0, 'spoil': False}
 
 
 def mergeEvent(event, event2merge, t):
-    for channel in ['B1', 'Gx', 'Gy', 'Gz']:
+    for channel in ['w1', 'Gx', 'Gy', 'Gz']:
         if channel in event2merge:
             event[channel] += event2merge[channel]
     if 'spoil' in event2merge:
@@ -690,7 +687,7 @@ def mergeEvent(event, event2merge, t):
 
 
 def detachEvent(event, event2detach, t):
-    for channel in ['B1', 'Gx', 'Gy', 'Gz']:
+    for channel in ['w1', 'Gx', 'Gy', 'Gz']:
         if channel in event2detach:
             event[channel] -= event2detach[channel]
     event['t'] = t
@@ -741,6 +738,7 @@ def setupPulseSeq(config):
     # Set clock vector
     config['t'] = np.arange(0, config['TR'], config['dt']) # kernel time vector
     config['t'] = addEventsToTimeVector(config['t'], config['pulseSeq'])
+    config['nFramesPerTR'] = len(config['t'])
     for rep in range(1, config['nTR']): # Repeat time vector for each TR
         config['t'] = np.concatenate((config['t'], roundEventTime(config['t'] + rep * config['TR'])), axis=None)
     config['t'] = np.concatenate((config['t'], roundEventTime(config['nTR'] * config['TR'])), axis=None) # Add end time to time vector
@@ -821,11 +819,6 @@ def checkConfig(config):
     config['w0'] = 2*np.pi*gyro*config['B0'] # Larmor frequency [kRad/s]
 
     setupPulseSeq(config)
-
-    # TODO: resample frames to be 
-
-    config['nFrames'] = len(config['clock'])-1
-    config['nFramesPerTR'] = len(config['kernelClock'])-1
 
     ### Arrange locations ###
     if not 'collapseLocations' in config:
@@ -943,7 +936,7 @@ def run(configFile, leapFactor=1, gifWriter='ffmpeg'):
             colors[i][:3] = list(map(lambda x: 1-x, colors[i][:3]))
 
     ### Simulate ###
-    vectors = np.empty((config['nx'],config['ny'],config['nz'],config['nComps'],config['nIsochromats'],3,config['nFrames']))
+    vectors = np.empty((config['nx'],config['ny'],config['nz'],config['nComps'],config['nIsochromats'],3,len(config['t'])))
     for z in range(config['nz']):
         for y in range(config['ny']):
             for x in range(config['nx']):
@@ -999,7 +992,7 @@ def run(configFile, leapFactor=1, gifWriter='ffmpeg'):
                 os.makedirs(tmpdir, exist_ok=True)
             os.makedirs(outdir, exist_ok=True)
             outfile = os.path.join(outdir, output['file'])
-            for frame in range(0, config['nFrames'], leapFactor):
+            for frame in range(0, len(config['t']), leapFactor):
                 # Use only every leapFactor frame in animation
                 if output['type'] == '3D':
                     fig = plotFrame3D(config, vectors, frame, output)
