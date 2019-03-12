@@ -316,20 +316,18 @@ def plotFrameKspace(config, frame, output):
     plt.tick_params(axis='y', colors=colors['text'])
     plt.tick_params(axis='x', colors=colors['text'])
 
+    frameTime = config['tFrames'][frame]%config['TR']
     kx, ky, kz = 0, 0, 0
-    for event in config['events']:
-        if event['frame']<frame:
-            if any([key in event for key in ['Gx', 'Gy', 'Gz']]):
-                dur = config['dt']*(min(event['frame']+event['nFrames'], frame)-event['frame'])
-                if 'Gx' in event:
-                    kx += gyro*event['Gx']*dur/1000
-                if 'Gy' in event:
-                    ky += gyro*event['Gy']*dur/1000
-                if 'Gz' in event:
-                    kz += gyro*event['Gz']*dur/1000
-            elif 'spoil' in event and event['spoil']:
+    for i, event in enumerate(config['events']):
+        firstFrame, lastFrame = getEventFrames(config, i)
+        if event['t'] < frameTime:
+            dur = min(frameTime, config['t'][lastFrame])-config['t'][firstFrame]
+            if 'spoil' in event and event['spoil']:
                 kx, ky, kz = 0, 0, 0
-        else: 
+            kx += gyro * event['Gx'] * dur / 1e3
+            ky += gyro * event['Gy'] * dur / 1e3
+            kz += gyro * event['Gz'] * dur / 1e3
+        else:
             break
     ax.plot(kx, ky, '.', markersize=10, color=colors['kSpacePos'])
     return fig
@@ -698,7 +696,7 @@ def detachEvent(event, event2detach, t):
 
 
 def getPrescribedTimeVector(config, nTR):
-    kernelTime = np.arange(0, config['TR'], config['dt']) # kernel time vector
+    kernelTime = np.arange(0, config['TR'], config['dt']) # kernel time vector [msec]
     t = np.array([])
     for rep in range(nTR): # Repeat time vector for each TR
         t = np.concatenate((t, roundEventTime(kernelTime + rep * config['TR'])), axis=None)
