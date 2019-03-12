@@ -317,7 +317,7 @@ def plotFrameKspace(config, frame, output):
     plt.tick_params(axis='x', colors=colors['text'])
 
     kx, ky, kz = 0, 0, 0
-    for event in config['pulseSeq']:
+    for event in config['events']:
         if event['frame']<frame:
             if any([key in event for key in ['Gx', 'Gy', 'Gz']]):
                 dur = config['dt']*(min(event['frame']+event['nFrames'], frame)-event['frame'])
@@ -372,18 +372,18 @@ def plotFramePSD(config, frame, output):
     ax.arrow(xmin, 0, (xmax-xmin)*1.05, 0, fc=colors['text'], ec=colors['text'], lw=1, head_width=hw, head_length=hl, clip_on=False, zorder=100)
     
     ylim = {}
-    w1s = [event['w1'] for event in config['pulseSeq'] if 'w1' in event]
+    w1s = [event['w1'] for event in config['events'] if 'w1' in event]
     if len(w1s)>0:
         ylim['w1'] = 2.1*np.max(w1s)
-    Gxs = [np.abs(event['Gx']) for event in config['pulseSeq'] if 'Gx' in event]
-    Gys = [np.abs(event['Gy']) for event in config['pulseSeq'] if 'Gy' in event]
-    Gzs = [np.abs(event['Gz']) for event in config['pulseSeq'] if 'Gz' in event]
+    Gxs = [np.abs(event['Gx']) for event in config['events'] if 'Gx' in event]
+    Gys = [np.abs(event['Gy']) for event in config['events'] if 'Gy' in event]
+    Gzs = [np.abs(event['Gz']) for event in config['events'] if 'Gz' in event]
     if not Gxs and not Gys and not Gzs:
         ylim['Gx'] = ylim['Gy'] = ylim['Gz'] = 1.0
     else:    
         ylim['Gx'] = ylim['Gy'] = ylim['Gz'] = 2.1*np.max(np.concatenate((Gxs, Gys, Gzs)))
     ypos = {board: y for board, y in [('w1',4), ('Gx',3), ('Gy',2), ('Gz',1)]}
-    for i, event in enumerate(config['pulseSeq']):
+    for i, event in enumerate(config['events']):
         firstFrame, lastFrame = getEventFrames(config, i)
         xpos = config['kernelClock'][firstFrame]
         w = config['kernelClock'][lastFrame] - xpos
@@ -441,7 +441,7 @@ def derivs(M, t, Meq, w, w1, T1, T2):
 
 
 def getEventFrames(config, i):
-    '''Get first and last frame of event i in config['pulseSeq'] in terms of config['t']
+    '''Get first and last frame of event i in config['events'] in terms of config['t']
 
     Args:
         config:         configuration dictionary.
@@ -453,13 +453,13 @@ def getEventFrames(config, i):
         
     '''
     try:
-        firstFrame = np.where(config['t']==config['pulseSeq'][i]['t'])[0][0]
+        firstFrame = np.where(config['t']==config['events'][i]['t'])[0][0]
     except IndexError:
         print('Event time not found in time vector')
         raise
     
-    if i < len(config['pulseSeq'])-1:
-        nextEventTime = config['pulseSeq'][i+1]['t']
+    if i < len(config['events'])-1:
+        nextEventTime = config['events'][i+1]['t']
     else:
         nextEventTime = config['TR']
     try:
@@ -494,7 +494,7 @@ def applyPulseSeq(config, Meq, M0, w, T1, T2, xpos=0, ypos=0, zpos=0):
     for rep in range(config['nTR']):
         TRstartFrame = rep * config['nFramesPerTR']
 
-        for i, event in enumerate(config['pulseSeq']):
+        for i, event in enumerate(config['events']):
             firstFrame, lastFrame = getEventFrames(config, i)
             firstFrame += TRstartFrame
             lastFrame += TRstartFrame
@@ -563,7 +563,7 @@ def getText(config):
         
     for rep in range(config['nTR']):
         TRstartFrame = rep * config['nFramesPerTR']
-        for i, event in enumerate(config['pulseSeq']):
+        for i, event in enumerate(config['events']):
             firstFrame, lastFrame = getEventFrames(config, i)        
             firstFrame += TRstartFrame
             lastFrame += TRstartFrame
@@ -718,8 +718,8 @@ def setupPulseSeq(config):
     # Sort pulseSeq according to event time
     config['pulseSeq'] = sorted(config['pulseSeq'], key=lambda event: event['t'])
 
-    # Create new non-overlapping events, including empty "relaxation" events
-    newPulseSeq = []
+    # Create non-overlapping events, each with constant w1, Gx, Gy, Gz, including empty "relaxation" events
+    config['events'] = []
     ongoingEvents = []
     newEvent = emptyEvent() # Start with empty "relaxation event"
     newEvent['t'] = 0
@@ -728,7 +728,7 @@ def setupPulseSeq(config):
         if event['t']==newEvent['t']:
             newEvent = mergeEvent(newEvent, event, event['t'])
         else:
-            newPulseSeq.append(dict(newEvent))
+            config['events'].append(dict(newEvent))
             newEvent = mergeEvent(newEvent, event, event['t'])
         if 'dur' in event: # event is ongoing unless no 'dur', i.e. spoiler event
                 ongoingEvents.append(event)
@@ -739,16 +739,14 @@ def setupPulseSeq(config):
         else:
             nextEventTime = config['pulseSeq'][i+1]['t']
         for stoppingEvent in [event for event in ongoingEvents[::-1] if roundEventTime(event['t'] + event['dur']) <= nextEventTime]:
-            newPulseSeq.append(dict(newEvent))
+            config['events'].append(dict(newEvent))
             newEvent = detachEvent(newEvent, stoppingEvent, roundEventTime(stoppingEvent['t'] + stoppingEvent['dur']))
             ongoingEvents.pop()
-    newPulseSeq.append(dict(newEvent))
-
-    config['pulseSeq'] = newPulseSeq
+    config['events'].append(dict(newEvent))
 
     # Set clock vector
     config['kernelClock'] = getPrescribedTimeVector(config, 1)
-    config['kernelClock'] = addEventsToTimeVector(config['kernelClock'], config['pulseSeq'])
+    config['kernelClock'] = addEventsToTimeVector(config['kernelClock'], config['events'])
     config['nFramesPerTR'] = len(config['kernelClock'])
     config['t'] = np.array([])
     for rep in range(config['nTR']): # Repeat time vector for each TR
