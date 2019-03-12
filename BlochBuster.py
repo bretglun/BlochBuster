@@ -697,6 +697,14 @@ def detachEvent(event, event2detach, t):
     return event
 
 
+def getPrescribedTimeVector(config, nTR):
+    kernelTime = np.arange(0, config['TR'], config['dt']) # kernel time vector
+    t = np.array([])
+    for rep in range(nTR): # Repeat time vector for each TR
+        t = np.concatenate((t, roundEventTime(kernelTime + rep * config['TR'])), axis=None)
+    return t    
+
+
 def setupPulseSeq(config):
     ''' Check and setup pulse sequence given by config. Set clock and store in config.
     
@@ -739,7 +747,7 @@ def setupPulseSeq(config):
     config['pulseSeq'] = newPulseSeq
 
     # Set clock vector
-    config['kernelClock'] = np.arange(0, config['TR'], config['dt']) # kernel time vector
+    config['kernelClock'] = getPrescribedTimeVector(config, 1)
     config['kernelClock'] = addEventsToTimeVector(config['kernelClock'], config['pulseSeq'])
     config['nFramesPerTR'] = len(config['kernelClock'])
     config['t'] = np.array([])
@@ -902,6 +910,54 @@ def spherical2cartesian(spherical):
     return list(M)
 
 
+def resampleOnPrescribedTimeFrames(vectors, config):
+    config['tFrames'] = getPrescribedTimeVector(config, config['nTR'])
+    newShape = list(vectors.shape)
+    newShape[6] = len(config['tFrames'])
+    resampledVectors = np.zeros(newShape)
+    for x in range(newShape[0]):
+        for y in range(newShape[1]):
+            for z in range(newShape[2]):
+                for c in range(newShape[3]):
+                    for i in range(newShape[4]):
+                        for dim in range(newShape[5]):
+                            resampledVectors[x,y,z,c,i,dim,:] = np.interp(config['tFrames'], config['t'], vectors[x,y,z,c,i,dim,:])
+    # resample text alpha channels:
+    for channel in ['RFalpha', 'Galpha', 'spoilAlpha']:
+        alphaVector = np.zeros([len(config['tFrames'])])
+        #config[channel] = np.interp(config['tFrames'], config['t'], config[channel])
+        for i in range(len(alphaVector)):
+            if i == len(alphaVector)-1:
+                ks = np.where(config['t']>=config['tFrames'][i])[0]
+            else:
+                ks = np.where(np.logical_and(config['t']>=config['tFrames'][i], config['t']<config['tFrames'][i+1]))[0]
+            alphaVector[i] = np.max(config[channel][ks])
+        config[channel] = alphaVector
+    # resample text:
+    for text in ['RFtext', 'Gtext']:
+        textVector = np.full([len(config['tFrames'])], '', dtype=object)
+        for i in range(len(textVector)):
+            k = np.where(config['t']>=config['tFrames'][i])[0][0]
+            textVector[i] = config[text][k]
+        config[text] = textVector
+    return resampledVectors
+
+
+def fadeTextFlashes(config, fadeTime=1.0):
+    ''' Modify text alpha channels such that the text flashes fade
+    
+    Args:
+        config:     configuration dictionary.
+        fadeTime:   time of fade in seconds   
+
+    '''
+    decay = 1.0/(config['fps'] * fadeTime) # alpha decrease per frame
+    for channel in ['RFalpha', 'Galpha', 'spoilAlpha']:
+        for i in range(1, len(config[channel])):
+            if config[channel][i]==0:
+                config[channel][i] = max(0, config[channel][i-1]-decay)
+
+
 def run(configFile, leapFactor=1, gifWriter='ffmpeg'):
     ''' Main program. Read and setup config, simulate magnetization vectors and write animated gif.
         
@@ -971,8 +1027,8 @@ def run(configFile, leapFactor=1, gifWriter='ffmpeg'):
 
     ### Animate ###
     getText(config) # prepare text flashes for 3D plot
-    # TODO: resample on prescribed time frames
-    # TODO: fade event text
+    vectors = resampleOnPrescribedTimeFrames(vectors, config)
+    fadeTextFlashes(config)
     delay = int(100/config['fps']*leapFactor)  # Delay between frames in ticks of 1/100 sec
 
     outdir = './out'
@@ -999,7 +1055,7 @@ def run(configFile, leapFactor=1, gifWriter='ffmpeg'):
                 os.makedirs(tmpdir, exist_ok=True)
             os.makedirs(outdir, exist_ok=True)
             outfile = os.path.join(outdir, output['file'])
-            for frame in range(0, len(config['t']), leapFactor):
+            for frame in range(0, len(config['tFrames']), leapFactor):
                 # Use only every leapFactor frame in animation
                 if output['type'] == '3D':
                     fig = plotFrame3D(config, vectors, frame, output)
