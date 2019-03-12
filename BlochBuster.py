@@ -53,7 +53,7 @@ colors = {  'bg':       [1,1,1],
                         [.5,.4,.1],
                         [.4,.1,.5],
                         [.6,.1,.3]],
-            'boards': { 'B1': [.5,0,0],
+            'boards': { 'w1': [.5,0,0],
                         'Gx': [0,.5,0],
                         'Gy': [0,.5,0],
                         'Gz': [0,.5,0]
@@ -176,15 +176,15 @@ def plotFrame3D(config, vectors, frame, output):
                                                 arrowstyle='-|>', shrinkA=0, shrinkB=0, lw=2,
                                                 color=col, alpha=alpha, 
                                                 zorder=order[m]+nIsoc*int(100*(1-Mnorm))))
-        
+
     # Draw "spoiler" and "FA-pulse" text
     fig.text(1, .94, config['RFtext'][frame], fontsize=14, alpha=config['RFalpha'][frame],
             color=colors['RFtext'], horizontalalignment='right', verticalalignment='top')
     fig.text(1, .88, config['Gtext'][frame], fontsize=14, alpha=config['Galpha'][frame],
             color=colors['Gtext'], horizontalalignment='right', verticalalignment='top')
-    fig.text(1, .82, 'spoiler', fontsize=14, alpha=config['spoilAlpha'][frame],
+    fig.text(1, .82, config['spoiltext'], fontsize=14, alpha=config['spoilAlpha'][frame],
             color=colors['spoilText'], horizontalalignment='right', verticalalignment='top')
-    
+
     # Draw legend:
     for c in range(nComps):
         col = colors['comps'][(c) % len(colors['comps'])]
@@ -372,9 +372,9 @@ def plotFramePSD(config, frame, output):
     ax.arrow(xmin, 0, (xmax-xmin)*1.05, 0, fc=colors['text'], ec=colors['text'], lw=1, head_width=hw, head_length=hl, clip_on=False, zorder=100)
     
     ylim = {}
-    B1s = [event['B1'] for event in config['pulseSeq'] if 'B1' in event and event['B1']!='inf']
-    if len(B1s)>0:
-        ylim['B1'] = 2.1*np.max(B1s)
+    w1s = [event['w1'] for event in config['pulseSeq'] if 'w1' in event]
+    if len(w1s)>0:
+        ylim['w1'] = 2.1*np.max(w1s)
     Gxs = [np.abs(event['Gx']) for event in config['pulseSeq'] if 'Gx' in event]
     Gys = [np.abs(event['Gy']) for event in config['pulseSeq'] if 'Gy' in event]
     Gzs = [np.abs(event['Gz']) for event in config['pulseSeq'] if 'Gz' in event]
@@ -382,18 +382,19 @@ def plotFramePSD(config, frame, output):
         ylim['Gx'] = ylim['Gy'] = ylim['Gz'] = 1.0
     else:    
         ylim['Gx'] = ylim['Gy'] = ylim['Gz'] = 2.1*np.max(np.concatenate((Gxs, Gys, Gzs)))
-    ypos = {board: y for board, y in [('B1',4), ('Gx',3), ('Gy',2), ('Gz',1)]}
-    for event in config['pulseSeq']:
-        xpos = config['kernelClock'][event['frame']]
-        w = config['kernelClock'][event['frame']+event['nFrames']] - xpos
-        for board in ['B1', 'Gx', 'Gy', 'Gz']:
+    ypos = {board: y for board, y in [('w1',4), ('Gx',3), ('Gy',2), ('Gz',1)]}
+    for i, event in enumerate(config['pulseSeq']):
+        firstFrame, lastFrame = getEventFrames(config, i)
+        xpos = config['kernelClock'][firstFrame]
+        w = config['kernelClock'][lastFrame] - xpos
+        for board in ['w1', 'Gx', 'Gy', 'Gz']:
             if board in event:
                 if event[board]=='inf':
                     h = 1/2.1
                 else:
                     h = .9*event[board]/ylim[board]
                 ax.add_patch(Rectangle((xpos, ypos[board]), w, h, lw=1, facecolor=colors['boards'][board], edgecolor=colors['text']))
-    for board in ['B1', 'Gx', 'Gy', 'Gz']:
+    for board in ['w1', 'Gx', 'Gy', 'Gz']:
         ax.plot([xmin, xmax], [ypos[board], ypos[board]], color=colors['text'], lw=1, clip_on=False, zorder=100)
         ax.text(0, ypos[board], board, fontsize=14,
             color=colors['text'], horizontalalignment='right', verticalalignment='center')
@@ -439,6 +440,36 @@ def derivs(M, t, Meq, w, w1, T1, T2):
     return dMdt
 
 
+def getEventFrames(config, i):
+    '''Get first and last frame of event i in config['pulseSeq'] in terms of config['t']
+
+    Args:
+        config:         configuration dictionary.
+        i:              event index
+        
+    Returns:
+        firstFrame:     index of first frame in terms of config['t']
+        lastFrame:      index of last frame in terms of config['t']
+        
+    '''
+    try:
+        firstFrame = np.where(config['t']==config['pulseSeq'][i]['t'])[0][0]
+    except IndexError:
+        print('Event time not found in time vector')
+        raise
+    
+    if i < len(config['pulseSeq'])-1:
+        nextEventTime = config['pulseSeq'][i+1]['t']
+    else:
+        nextEventTime = config['TR']
+    try:
+        lastFrame = np.where(config['t']==nextEventTime)[0][0]
+    except IndexError:
+        print('Event time not found in time vector')
+        raise
+    return firstFrame, lastFrame
+
+
 def applyPulseSeq(config, Meq, M0, w, T1, T2, xpos=0, ypos=0, zpos=0):
     '''Simulate magnetization vector during nTR applications of pulse sequence.
     
@@ -464,21 +495,9 @@ def applyPulseSeq(config, Meq, M0, w, T1, T2, xpos=0, ypos=0, zpos=0):
         TRstartFrame = rep * config['nFramesPerTR']
 
         for i, event in enumerate(config['pulseSeq']):
-            try:
-                firstFrame = np.where(config['t']==event['t'])[0][0] + TRstartFrame
-            except IndexError:
-                print('Event time not found in time vector')
-                raise
-            
-            if event is config['pulseSeq'][-1]: 
-                nextEventTime = config['TR']
-            else:
-                nextEventTime = config['pulseSeq'][i+1]['t']
-            try:
-                lastFrame = np.where(config['t']==nextEventTime)[0][0] + TRstartFrame
-            except IndexError:
-                print('Event time not found in time vector')
-                raise
+            firstFrame, lastFrame = getEventFrames(config, i)
+            firstFrame += TRstartFrame
+            lastFrame += TRstartFrame
 
             M0 = M[firstFrame]
 
@@ -527,67 +546,40 @@ def simulateComponent(config, component, Meq, M0=None, xpos=0, ypos=0, zpos=0):
 
 
 def getText(config):
-    ''' Get opacity and text for spoiler and RF text flashes in 3D plot and store in config.
+    ''' Get opacity and display text pulseSeq event text flashes in 3D plot and store in config.
     
     Args:
         config: configuration dictionary.
         
     '''
 
-    framesSinceSpoil = np.full([config['nFrames']+1], np.inf, dtype=int)
-    framesSinceRF = np.full([config['nFrames']+1], np.inf, dtype=int)
-    framesSinceG = np.full([config['nFrames']+1], np.inf, dtype=int)
-    config['RFtext'] = np.full([config['nFrames']+1], '', dtype=object)
-    config['Gtext'] = np.full([config['nFrames']+1], '', dtype=object)
-    
+    # Setup display text related to pulseSeq events:
+    config['RFtext'] = np.full([len(config['t'])], '', dtype=object)
+    config['Gtext'] = np.full([len(config['t'])], '', dtype=object)
+    config['spoiltext'] = 'spoiler'
+    config['RFalpha'] = np.zeros([len(config['t'])])   
+    config['Galpha'] = np.zeros([len(config['t'])])
+    config['spoilAlpha'] = np.zeros([len(config['t'])])   
+        
     for rep in range(config['nTR']):
-        TRframe = rep * config['nFramesPerTR'] #starting frame of TR
-        frame = 0 #frame within TR
-        for event in config['pulseSeq']:
-            # Frames during relaxation
-            nFrames = event['frame']-frame
-            count = np.linspace(0, nFrames, nFrames+1, endpoint=True)
-            framesSinceSpoil[TRframe+frame:TRframe+event['frame']+1] = framesSinceSpoil[TRframe+frame] + count
-            framesSinceRF[TRframe+frame:TRframe+event['frame']+1] = framesSinceRF[TRframe+frame] + count
-            framesSinceG[TRframe+frame:TRframe+event['frame']+1] = framesSinceG[TRframe+frame] + count
-            frame = event['frame']
+        TRstartFrame = rep * config['nFramesPerTR']
+        for i, event in enumerate(config['pulseSeq']):
+            firstFrame, lastFrame = getEventFrames(config, i)        
+            firstFrame += TRstartFrame
+            lastFrame += TRstartFrame
 
-            #Frames during event
-            count = np.linspace(0, event['nFrames'], event['nFrames']+1, endpoint=True)
-            
-            if 'spoil' in event and event['spoil']: # Spoiler event
-                framesSinceSpoil[TRframe+frame] = 0
-            framesSinceSpoil[TRframe+frame:TRframe+frame+event['nFrames']+1] = framesSinceSpoil[TRframe+frame] + count
-            
-            if 'FA' in event: # RF-pulse and/or gradient event
-                framesSinceRF[TRframe+frame:TRframe+frame+event['nFrames']+1] = 0
-                # TODO: add info about the RF phase angle
-                config['RFtext'][TRframe+frame:] = str(int(abs(event['FA'])))+u'\N{DEGREE SIGN}'+'-pulse'
-            else:
-                framesSinceRF[TRframe+frame:TRframe+frame+event['nFrames']+1] = framesSinceRF[TRframe+frame] + count
-            if any(key in event for key in ['Gx', 'Gy', 'Gz']): # gradient event
-                framesSinceG[TRframe+frame:TRframe+frame+event['nFrames']+1] = 0
-                grad = ''
+            if 'RFtext' in event:
+                config['RFtext'][firstFrame:] = event['RFtext']
+                config['RFalpha'][firstFrame:lastFrame+1] = 1.0
+            if any('{}text'.format(g) in event for g in ['Gx', 'Gy', 'Gz']): # gradient event
+                Gtext = ''
                 for g in ['Gx', 'Gy', 'Gz']:
-                    if g in event:
-                        grad += '  {}: {} mT/m'.format(g, event[g])
-                config['Gtext'][TRframe+frame:] = grad
-            else:
-                framesSinceG[TRframe+frame:TRframe+frame+event['nFrames']+1] = framesSinceG[TRframe+frame] + count
-            
-            frame += event['nFrames']
-
-        # Frames during relaxation until end of TR
-        nFrames = config['nFramesPerTR']-frame
-        count = np.linspace(0, nFrames, nFrames+1, endpoint=True)
-        framesSinceSpoil[TRframe+frame:(rep+1)*config['nFramesPerTR']+1] = framesSinceSpoil[TRframe+frame] + count
-        framesSinceRF[TRframe+frame:(rep+1)*config['nFramesPerTR']+1] = framesSinceRF[TRframe+frame] + count
-        framesSinceG[TRframe+frame:(rep+1)*config['nFramesPerTR']+1] = framesSinceG[TRframe+frame] + count
-            
-    # Calculate alphas (one second fade)
-    config['spoilAlpha'] = [max(1.0-frames/config['fps'], 0) for frames in framesSinceSpoil]
-    config['Galpha'] = [max(1.0-frames/config['fps'], 0) for frames in framesSinceG]
-    config['RFalpha'] = [max(1.0-frames/config['fps'], 0) for frames in framesSinceRF]
+                    if '{}text'.format(g) in event:
+                        Gtext += '  ' + event['{}text'.format(g)]
+                config['Gtext'][firstFrame:] = Gtext
+                config['Galpha'][firstFrame:lastFrame+1] = 1.0
+            if 'spoil' in event and event['spoil']:
+                config['spoilAlpha'][firstFrame] = 1.0
 
 
 def roundEventTime(time):
@@ -607,6 +599,8 @@ def checkPulseSeq(config):
     Args:
         config: configuration dictionary.
     '''
+
+    instantDuration = 1e-3 # 1 us
 
     if 'pulseSeq' not in config:
         config['pulseSeq'] = []
@@ -630,6 +624,7 @@ def checkPulseSeq(config):
                 raise Exception('Spoiler event must have spoil: true')
             if any([key not in ['t', 'spoil'] for key in event]):
                 raise Exception('Spoiler event should only have event time t and spoil: true')
+            event['spoiltext'] = 'spoiler'
         # TODO: generalize RF pulse events here!
         if 'FA' in event or 'B1' in event: # RF-pulse event (possibly with gradient)
             if all(key in event for key in ['FA', 'B1', 'dur']):
@@ -639,16 +634,15 @@ def checkPulseSeq(config):
                     event['B1'] = config['B1'] # use "global" B1
                 else:
                     event['B1'] = 'inf' # "instant" RF-pulse          
-            if 'B1' in event: 
-                if event['B1'] == 'inf': # handle "instant" RF pulse, specified by B1: inf
-                    if 'dur' in event:
-                        raise Exception('Cannot combine given dur with "infinite" B1 pulse')
-                    event['dur'] = 0
-            else:
+            if 'B1' in event and event['B1'] == 'inf': # handle "instant" RF pulse, specified by B1: inf
+                if 'dur' in event:
+                    raise Exception('Cannot combine given dur with "infinite" B1 pulse')
+                event['dur'] = instantDuration
+                del event['B1'] # re-calculate B1 later
+            if 'B1' not in event:
                 if event['dur']==0:
-                    event['B1'] = 'inf'
-                else:
-                    event['B1'] = abs(event['FA'])/(event['dur']*360*gyro*1e-6)
+                    event['dur'] = instantDuration
+                event['B1'] = abs(event['FA'])/(event['dur']*360*gyro*1e-6)
             if 'dur' not in event:
                 event['dur'] = abs(event['FA'])/(360*gyro*event['B1']*1e-6) # RF pulse duration
             if 'FA' not in event:
@@ -656,18 +650,21 @@ def checkPulseSeq(config):
             if 'phase' in event: # Set complex flip angles
                 event['FA'] = event['FA']*np.exp(1j*np.radians(event['phase']))
             event['w1'] = event['FA'] * (np.pi/180) / event['dur']
+            event['RFtext'] = str(int(abs(event['FA'])))+u'\N{DEGREE SIGN}'+'-pulse'
         if any(key in event for key in ['Gx', 'Gy', 'Gz']): # Gradient (no RF)
             if not ('dur' in event and event['dur']>0):
                 raise Exception('Gradient must have a specified duration>0 (dur [ms])')
             if 'FA' not in event and 'phase' in event:
                 raise Exception('Gradient event should have no phase')
-            for G in ['Gx', 'Gy', 'Gz']:
-                if G in event:
+            for g in ['Gx', 'Gy', 'Gz']:
+                if g in event:
                     try:
-                        event[G] = float(event[G])
+                        event[g] = float(event[g])
                     except ValueError:
-                        print('{} must be a number'.format(G))
+                        print('{} must be a number'.format(g))
                         raise ValueError
+                    
+                    event['{}text'.format(g)] = '{}: {} mT/m'.format(g, event[g])
 
 
 def emptyEvent():
@@ -678,6 +675,9 @@ def mergeEvent(event, event2merge, t):
     for channel in ['w1', 'Gx', 'Gy', 'Gz']:
         if channel in event2merge:
             event[channel] += event2merge[channel]
+    for text in ['RFtext', 'Gxtext', 'Gytext', 'Gztext', 'spoilText']:
+        if text in event2merge:
+            event[text] = event2merge[text]
     if 'spoil' in event2merge:
         event['spoil'] = True
     else:
@@ -690,6 +690,9 @@ def detachEvent(event, event2detach, t):
     for channel in ['w1', 'Gx', 'Gy', 'Gz']:
         if channel in event2detach:
             event[channel] -= event2detach[channel]
+    for text in ['RFtext', 'Gxtext', 'Gytext', 'Gztext', 'spoilText']:
+        if text in event and text in event2detach and event[text]==event2detach[text]:
+            del event[text]
     event['t'] = t
     return event
 
@@ -706,7 +709,7 @@ def setupPulseSeq(config):
 
     # Sort pulseSeq according to event time
     config['pulseSeq'] = sorted(config['pulseSeq'], key=lambda event: event['t'])
-    
+
     # Create new non-overlapping events, including empty "relaxation" events
     newPulseSeq = []
     ongoingEvents = []
@@ -721,7 +724,7 @@ def setupPulseSeq(config):
             newEvent = mergeEvent(newEvent, event, event['t'])
         if 'dur' in event: # event is ongoing unless no 'dur', i.e. spoiler event
                 ongoingEvents.append(event)
-                # sort ongoingevents according to event end time:
+                # sort ongoing events according to event end time:
                 sorted(ongoingEvents, key=lambda event: event['t'] + event['dur'], reverse=False)
         if event is config['pulseSeq'][-1]:
             nextEventTime = config['TR']
@@ -736,12 +739,14 @@ def setupPulseSeq(config):
     config['pulseSeq'] = newPulseSeq
 
     # Set clock vector
-    config['t'] = np.arange(0, config['TR'], config['dt']) # kernel time vector
-    config['t'] = addEventsToTimeVector(config['t'], config['pulseSeq'])
-    config['nFramesPerTR'] = len(config['t'])
-    for rep in range(1, config['nTR']): # Repeat time vector for each TR
-        config['t'] = np.concatenate((config['t'], roundEventTime(config['t'] + rep * config['TR'])), axis=None)
+    config['kernelClock'] = np.arange(0, config['TR'], config['dt']) # kernel time vector
+    config['kernelClock'] = addEventsToTimeVector(config['kernelClock'], config['pulseSeq'])
+    config['nFramesPerTR'] = len(config['kernelClock'])
+    config['t'] = np.array([])
+    for rep in range(config['nTR']): # Repeat time vector for each TR
+        config['t'] = np.concatenate((config['t'], roundEventTime(config['kernelClock'] + rep * config['TR'])), axis=None)
     config['t'] = np.concatenate((config['t'], roundEventTime(config['nTR'] * config['TR'])), axis=None) # Add end time to time vector
+    config['kernelClock'] = np.concatenate((config['kernelClock'], config['TR']), axis=None) # Add end time to kernel clock
     
 
 def arrangeLocations(slices, config, key='locations'):
@@ -965,7 +970,9 @@ def run(configFile, leapFactor=1, gifWriter='ffmpeg'):
                     vectors[x,y,z,c,:,:,:] = simulateComponent(config, component, Meq, M0, xpos, ypos, zpos)
 
     ### Animate ###
-    getText(config) # prepare text flashes for 3D plot 
+    getText(config) # prepare text flashes for 3D plot
+    # TODO: resample on prescribed time frames
+    # TODO: fade event text
     delay = int(100/config['fps']*leapFactor)  # Delay between frames in ticks of 1/100 sec
 
     outdir = './out'
