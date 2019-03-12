@@ -696,11 +696,20 @@ def detachEvent(event, event2detach, t):
 
 
 def getPrescribedTimeVector(config, nTR):
-    kernelTime = np.arange(0, config['TR'], config['dt']) # kernel time vector [msec]
+    dt = 1e3/config['fps']*config['speed'] # Animation time resolution [msec]
+    kernelTime = np.arange(0, config['TR'], dt) # kernel time vector [msec]
+
+    slowRFpulses = True
+    if slowRFpulses:
+        for event in config['pulseSeq']:
+            if 'FA' in event:
+                dt = event['dur'] / config['fps'] * 90 / abs(event['FA']) # dt [msec] that gives one sec per 90 flip
+                kernelTime = np.concatenate((kernelTime, np.arange(event['t'], event['t'] + event['dur'], dt)), axis=None)
+    
     t = np.array([])
     for rep in range(nTR): # Repeat time vector for each TR
-        t = np.concatenate((t, roundEventTime(kernelTime + rep * config['TR'])), axis=None)
-    return t    
+        t = np.concatenate((t, kernelTime + rep * config['TR']), axis=None)
+    return np.unique(roundEventTime(t))
 
 
 def setupPulseSeq(config):
@@ -823,8 +832,6 @@ def checkConfig(config):
     if 'fps' not in config:
         config['fps'] = 15 # Frames per second in animation (<=15 should be supported by powepoint)
     
-    # calculations
-    config['dt'] = 1e3/config['fps']*config['speed'] # Animation time resolution [msec]
     config['w0'] = 2*np.pi*gyro*config['B0'] # Larmor frequency [kRad/s]
 
     setupPulseSeq(config)
