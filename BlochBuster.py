@@ -372,7 +372,7 @@ def plotFramePSD(config, frame, output):
     ylim = {}
     w1s = [event['w1'] for event in config['events'] if 'w1' in event]
     if len(w1s)>0:
-        ylim['w1'] = 2.1*np.max(w1s)
+        ylim['w1'] = 2.1*np.max([np.abs(w1) for w1 in w1s if np.abs(w1) < 50])
     Gxs = [np.abs(event['Gx']) for event in config['events'] if 'Gx' in event]
     Gys = [np.abs(event['Gy']) for event in config['events'] if 'Gy' in event]
     Gzs = [np.abs(event['Gz']) for event in config['events'] if 'Gz' in event]
