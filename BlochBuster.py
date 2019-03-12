@@ -398,7 +398,7 @@ def plotFramePSD(config, frame, output):
         ax.plot([xmin, xmax], [ypos[board], ypos[board]], color=colors['text'], lw=1, clip_on=False, zorder=100)
         ax.text(0, ypos[board], board, fontsize=14,
             color=colors['text'], horizontalalignment='right', verticalalignment='center')
-    ax.plot([config['kernelClock'][frame%(len(config['kernelClock'])-1)], config['kernelClock'][frame%(len(config['kernelClock'])-1)]], [0, 5], color=colors['text'], lw=1, clip_on=False, zorder=100)
+    ax.plot([config['tFrames'][frame]%config['TR'], config['tFrames'][frame]%config['TR']], [0, 5], color=colors['text'], lw=1, clip_on=False, zorder=100)
     return fig
 
 
