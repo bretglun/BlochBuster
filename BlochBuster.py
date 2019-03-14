@@ -591,6 +591,13 @@ def addEventsToTimeVector(t, pulseSeq):
     return np.unique(roundEventTime(np.array(t)))
 
 
+def calculateFA(B1vector, dwell):
+    FA = 0
+    for B1 in B1vector:
+        FA += 360*(dwell * gyro * np.real(B1) * 1e-6)
+    return FA
+
+
 def checkPulseSeq(config):
     ''' Check/verify pulse sequence given by config.
     
@@ -623,31 +630,46 @@ def checkPulseSeq(config):
             if any([key not in ['t', 'spoil'] for key in event]):
                 raise Exception('Spoiler event should only have event time t and spoil: true')
             event['spoiltext'] = 'spoiler'
-        # TODO: generalize RF pulse events here!
         if 'FA' in event or 'B1' in event: # RF-pulse event (possibly with gradient)
-            if all(key in event for key in ['FA', 'B1', 'dur']):
-                raise Exception('RF-pulse over-determined. Provide only two out of "FA", "B1", and "dur"')
-            if 'B1' not in event and 'dur' not in event:
-                if 'B1' in config:
-                    event['B1'] = config['B1'] # use "global" B1
+
+            # combinations not allowed:
+            if 'B1' in event and not any([key in event for key in ['dur', 'dwell']]):
+                raise Exception('RF-pulse must provide "dur" or "dwell" along with "B1"')
+            if 'dwell' in event:
+                if 'B1' not in event or type(event['B1']) is not list:
+                    raise Exception('"dwell" should be used for RF-pulses with "B1" as a list')
+            if all([key in event for key in ['dur', 'dwell']]):
+                raise Exception('RF-pulse cannot have both "dur" and "dwell"')
+            
+            # calculate duration dur:
+            if ('B1' not in event and 'dur' not in event) or ('dur' in event and event['dur']==0):
+                event['dur'] = instantDuration # handle "instant" RF pulse
+            if 'dwell' in event:
+                event['dur'] = len(event['B1']) * event['dwell']
+            
+            if 'B1' in event and type(event['B1']) is not list:
+                event['B1'] = [event['B1']] # make it a list
+            
+            # calculate dwell time:
+            if 'dwell' not in event:
+                if 'B1' in event:
+                    event['dwell'] = event['dur'] / len(event['B1'])
                 else:
-                    event['B1'] = 'inf' # "instant" RF-pulse          
-            if 'B1' in event and event['B1'] == 'inf': # handle "instant" RF pulse, specified by B1: inf
-                if 'dur' in event:
-                    raise Exception('Cannot combine given dur with "infinite" B1 pulse')
-                event['dur'] = instantDuration
-                del event['B1'] # re-calculate B1 later
-            if 'B1' not in event:
-                if event['dur']==0:
-                    event['dur'] = instantDuration
-                event['B1'] = abs(event['FA'])/(event['dur']*360*gyro*1e-6)
-            if 'dur' not in event:
-                event['dur'] = abs(event['FA'])/(360*gyro*event['B1']*1e-6) # RF pulse duration
-            if 'FA' not in event:
-                event['FA'] = 360*(event['dur']*gyro*event['B1']*1e-6) # calculate prescribed FA
+                    event['dwell'] = event['dur']
+            
+            if 'B1' in event:
+                calcFA = calculateFA(event['B1'], event['dwell'])
+
+            if 'FA' in event:
+                if 'B1' not in event:
+                    event['B1'] = [event['FA']/(event['dur'] * 360 * gyro * 1e-6)]
+                else:
+                    event['B1'] = [B1 * event['FA'] / calcFA for B1 in event['B1']] # scale B1 to get prescribed FA
+            else:
+                event['FA'] = calcFA
             if 'phase' in event: # Set complex flip angles
-                event['FA'] = event['FA']*np.exp(1j*np.radians(event['phase']))
-            event['w1'] = event['FA'] * (np.pi/180) / event['dur']
+                event['B1'] = event['B1'] * np.exp(1j * np.radians(event['phase']))
+            event['w1'] = [2 * np.pi * gyro * B1 * 1e-6 for B1 in event['B1']] # kRad / s
             event['RFtext'] = str(int(abs(event['FA'])))+u'\N{DEGREE SIGN}'+'-pulse'
         if any(key in event for key in ['Gx', 'Gy', 'Gz']): # Gradient (no RF)
             if not ('dur' in event and event['dur']>0):
@@ -663,6 +685,32 @@ def checkPulseSeq(config):
                         raise ValueError
                     
                     event['{}text'.format(g)] = '{}: {} mT/m'.format(g, event[g])
+    
+    # Sort pulseSeq according to event time
+    config['pulseSeq'] = sorted(config['pulseSeq'], key=lambda event: event['t'])
+
+    # split any pulseSeq events with array values into separate events
+    config['separatedPulseSeq'] = []
+    for event in config['pulseSeq']:
+        if 'dwell' in event:
+            for i, t in enumerate(np.arange(event['t'], event['t'] + event['dur'], event['dwell'])):
+                subEvent = {'t': roundEventTime(t), 'dur': event['dwell']}
+                if i==0 and spoil in event:
+                    subEvent['spoil'] = event['spoil']
+                if 'RFtext' in event:
+                    subEvent['RFtext'] = event['RFtext']
+                for key in ['w1', 'Gx', 'Gy', 'Gz']:
+                    if key in event:
+                        if type(event[key]) is list:
+                            subEvent[key] = event[key][i]
+                        else:
+                            subEvent[key] = event[key]
+                config['separatedPulseSeq'].append(subEvent)
+        else:
+            config['separatedPulseSeq'].append(event)
+
+    # Sort separatedPulseSeq according to event time
+    config['separatedPulseSeq'] = sorted(config['separatedPulseSeq'], key=lambda event: event['t'])
 
 
 def emptyEvent():
@@ -722,15 +770,12 @@ def setupPulseSeq(config):
 
     checkPulseSeq(config)
 
-    # Sort pulseSeq according to event time
-    config['pulseSeq'] = sorted(config['pulseSeq'], key=lambda event: event['t'])
-
     # Create non-overlapping events, each with constant w1, Gx, Gy, Gz, including empty "relaxation" events
     config['events'] = []
     ongoingEvents = []
     newEvent = emptyEvent() # Start with empty "relaxation event"
     newEvent['t'] = 0
-    for i, event in enumerate(config['pulseSeq']):
+    for i, event in enumerate(config['separatedPulseSeq']):
         # Merge any events starting simultaneously:
         if event['t']==newEvent['t']:
             newEvent = mergeEvent(newEvent, event, event['t'])
@@ -741,10 +786,10 @@ def setupPulseSeq(config):
                 ongoingEvents.append(event)
                 # sort ongoing events according to event end time:
                 sorted(ongoingEvents, key=lambda event: event['t'] + event['dur'], reverse=False)
-        if event is config['pulseSeq'][-1]:
+        if event is config['separatedPulseSeq'][-1]:
             nextEventTime = config['TR']
         else:
-            nextEventTime = config['pulseSeq'][i+1]['t']
+            nextEventTime = config['separatedPulseSeq'][i+1]['t']
         for stoppingEvent in [event for event in ongoingEvents[::-1] if roundEventTime(event['t'] + event['dur']) <= nextEventTime]:
             config['events'].append(dict(newEvent))
             newEvent = detachEvent(newEvent, stoppingEvent, roundEventTime(stoppingEvent['t'] + stoppingEvent['dur']))
