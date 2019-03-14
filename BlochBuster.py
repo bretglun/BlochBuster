@@ -418,8 +418,8 @@ def derivs(M, t, Meq, w, w1, T1, T2):
     '''Bloch equations in rotating frame.
 
     Args:
-        w:    Larmor frequency :math:`2\\pi\\gamma B_0` [kRad].
-	w1 (complex):   B1 rotation frequency :math:`2\\pi\\gamma B_1`  [kRad].
+        w:    Larmor frequency :math:`2\\pi\\gamma B_0` [kRad / s].
+	w1 (complex):   B1 rotation frequency :math:`2\\pi\\gamma B_1`  [kRad / s].
         T1:   longitudinal relaxation time.
         T2:   transverse relaxation time.
         M:    magnetization vector.
@@ -475,7 +475,7 @@ def applyPulseSeq(config, Meq, M0, w, T1, T2, xpos=0, ypos=0, zpos=0):
         config: configuration dictionary.
         Meq:    equilibrium magnetization along z axis.
         M0:     initial state of magnetization vector, numpy array of size 3.
-        w:      Larmor frequency :math:`2\\pi\\gamma B_0` [kRad].
+        w:      Larmor frequency :math:`2\\pi\\gamma B_0` [kRad / s].
         T1:     longitudinal relaxation time.
         T2:     transverse relaxation time.
         xpos:   position of magnetization vector along x gradient.
@@ -503,9 +503,9 @@ def applyPulseSeq(config, Meq, M0, w, T1, T2, xpos=0, ypos=0, zpos=0):
                 M0 = spoil(M0)
 
             wg = w  # frequency due to w plus any gradients
-            wg += 2*np.pi*gyro*event['Gx']*xpos/1000 # [krad/s]
-            wg += 2*np.pi*gyro*event['Gy']*ypos/1000 # [krad/s]
-            wg += 2*np.pi*gyro*event['Gz']*zpos/1000 # [krad/s]
+            wg += 2*np.pi*gyro*event['Gx']*xpos/1000 # [kRad/s]
+            wg += 2*np.pi*gyro*event['Gy']*ypos/1000 # [kRad/s]
+            wg += 2*np.pi*gyro*event['Gz']*zpos/1000 # [kRad/s]
 
             w1 = event['w1']
 
@@ -538,7 +538,7 @@ def simulateComponent(config, component, Meq, M0=None, xpos=0, ypos=0, zpos=0):
     comp = np.empty((config['nIsochromats'],3,len(config['t'])))
 
     for m, isochromat in enumerate(isochromats):
-        w = config['w0']*isochromat*1e-6  # Demodulated frequency [krad]
+        w = config['w0']*isochromat*1e-6  # Demodulated frequency [kRad / s]
         comp[m,:,:] = applyPulseSeq(config, Meq, M0, w, component['T1'], component['T2'], xpos, ypos, zpos)
     return comp
 
