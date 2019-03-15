@@ -150,7 +150,7 @@ def plotFrame3D(config, vectors, frame, output):
     fig.text(.5, 1, config['title'], fontsize=14, horizontalalignment='center', verticalalignment='top', color=colors['text'])
 
     # Draw time
-    time_text = fig.text(0, 0, 'time = %.1f msec' % (config['t'][frame%(len(config['t'])-1)]), color=colors['text'], verticalalignment='bottom')
+    time_text = fig.text(0, 0, 'time = %.1f msec' % (config['tFrames'][frame%(len(config['t'])-1)]), color=colors['text'], verticalalignment='bottom')
 
     # TODO: put isochromats in this order from start
     order = [int((nIsoc-1)/2-abs(m-(nIsoc-1)/2)) for m in range(nIsoc)]
@@ -641,7 +641,7 @@ def checkPulseSeq(config):
             if all([key in event for key in ['dur', 'dwell']]):
                 raise Exception('RF-pulse cannot have both "dur" and "dwell"')
             
-            # calculate duration dur:
+            # calculate duration:
             if ('B1' not in event and 'dur' not in event) or ('dur' in event and event['dur']==0):
                 event['dur'] = instantDuration # handle "instant" RF pulse
             if 'dwell' in event:
@@ -657,9 +657,11 @@ def checkPulseSeq(config):
                 else:
                     event['dwell'] = event['dur']
             
+            # calculate FA prescribed by B1
             if 'B1' in event:
                 calcFA = calculateFA(event['B1'], event['dwell'])
 
+            # calculate B1 or scale it to get prescribed FA
             if 'FA' in event:
                 if 'B1' not in event:
                     event['B1'] = [event['FA']/(event['dur'] * 360 * gyro * 1e-6)]
@@ -667,7 +669,11 @@ def checkPulseSeq(config):
                     event['B1'] = [B1 * event['FA'] / calcFA for B1 in event['B1']] # scale B1 to get prescribed FA
             else:
                 event['FA'] = calcFA
-            if 'phase' in event: # Set complex flip angles
+
+            # make B1 an array
+            event['B1'] = np.array(event['B1'])
+
+            if 'phase' in event: # Add phase to B1 if provided
                 event['B1'] = event['B1'] * np.exp(1j * np.radians(event['phase']))
             event['w1'] = [2 * np.pi * gyro * B1 * 1e-6 for B1 in event['B1']] # kRad / s
             event['RFtext'] = str(int(abs(event['FA'])))+u'\N{DEGREE SIGN}'+'-pulse'
