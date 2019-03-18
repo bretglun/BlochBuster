@@ -370,25 +370,24 @@ def plotFramePSD(config, frame, output):
         yhl = hl/(xmax-xmin)*(ymax-ymin) * width/height
         ax.arrow(xmin, 0, (xmax-xmin)*1.05, 0, fc=colors['text'], ec=colors['text'], lw=1, head_width=hw, head_length=hl, clip_on=False, zorder=100)
         
-        ylim = {}
-        w1s = [event['w1'] for event in config['events']]
-        Gxs = [event['Gx'] for event in config['events']]
-        Gys = [event['Gy'] for event in config['events']]
-        Gzs = [event['Gz'] for event in config['events']]
-        ylim['w1'] = 2.1*np.max([np.abs(w1) for w1 in w1s if np.abs(w1) < 50])
-        ylim['Gx'] = ylim['Gy'] = ylim['Gz'] = 2.1*np.max(np.concatenate((np.abs(Gxs), np.abs(Gys), np.abs(Gzs))))
-        ypos = {board: y for board, y in [('w1',4), ('Gx',3), ('Gy',2), ('Gz',1)]}
-        for i, event in enumerate(config['events']):
-            firstFrame, lastFrame = getEventFrames(config, i)
-            xpos = config['kernelClock'][firstFrame]
-            w = config['kernelClock'][lastFrame] - xpos
-            for board in ['w1', 'Gx', 'Gy', 'Gz']:
-                if board in event:
-                    h = .9*event[board]/ylim[board]
-                    ax.add_patch(Rectangle((xpos, ypos[board]), w, h, lw=1, facecolor=colors['boards'][board], edgecolor=colors['text']))
+        boards = {'w1': {'ypos': 4}, 'Gx': {'ypos': 3}, 'Gy': {'ypos': 2}, 'Gz': {'ypos': 1}}
+        for board in boards:
+            boards[board]['signal'] = [0]
+        t = [0]
+        for event in config['events']:
+            for board in boards:
+                boards[board]['signal'].append(boards[board]['signal'][-1]) # end of previous event:
+                boards[board]['signal'].append(event[board]) # start of this event:
+            t.append(event['t']) # end of previous event:
+            t.append(event['t']) # start of this event:
+
+        boards['w1']['scale'] = 0.48 / np.max([np.abs(w) for w in boards['w1']['signal'] if np.abs(w) < 50])
+        boards['Gx']['scale'] = boards['Gy']['scale'] = boards['Gz']['scale'] = 0.48 / np.max(np.abs(np.concatenate((boards['Gx']['signal'], boards['Gy']['signal'], boards['Gz']['signal']))))
+                
         for board in ['w1', 'Gx', 'Gy', 'Gz']:
-            ax.plot([xmin, xmax], [ypos[board], ypos[board]], color=colors['text'], lw=1, clip_on=False, zorder=100)
-            ax.text(0, ypos[board], board, fontsize=14,
+            ax.plot(t, boards[board]['ypos'] + np.array(boards[board]['signal']) * boards[board]['scale'], lw=1, color=colors['boards'][board])
+            ax.plot([xmin, xmax], [boards[board]['ypos'], boards[board]['ypos']], color=colors['text'], lw=1, clip_on=False, zorder=100)
+            ax.text(0, boards[board]['ypos'], board, fontsize=14,
                 color=colors['text'], horizontalalignment='right', verticalalignment='center')
     
         # plot vertical time line:
