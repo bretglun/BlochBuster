@@ -16,7 +16,6 @@ pulseSeq:
     phase: 90
 TR: 130
 B0: 1.5
-B1: inf
 nIsochromats: 30
 isochromatStep: 0.02
 speed: 0.01

@@ -7,7 +7,6 @@ pulseSeq:
 TR: 5
 nTR: 15
 B0: 1.5
-B1: 1.0
 components:
   - T1: 60.0
     T2: 55.0

@@ -19,7 +19,6 @@ pulseSeq:
 TR: 25
 nTR: 2 
 B0: 3.0 
-B1: 10
 components:
     - name: "tissue #1"
       CS: 0.0

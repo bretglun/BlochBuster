@@ -8,7 +8,6 @@ pulseSeq:
     FA: 180
 TR: 2700
 B0: 1.5
-B1: inf
 components:
   - name: CSF
     CS: 0.0

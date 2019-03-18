@@ -9,7 +9,6 @@ pulseSeq:
     phase: 180
 TR: 1000
 B0: 1.5
-B1: 1.0
 components:
   - name: fluid
     T1: 2400
