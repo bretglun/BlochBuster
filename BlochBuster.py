@@ -805,6 +805,8 @@ def setupPulseSeq(config):
     # Set clock vector
     config['kernelClock'] = getPrescribedTimeVector(config, 1)
     config['kernelClock'] = addEventsToTimeVector(config['kernelClock'], config['events'])
+    if config['kernelClock'][-1] == config['TR']:
+        config['kernelClock'] = config['kernelClock'][:-1]
     config['nFramesPerTR'] = len(config['kernelClock'])
     config['t'] = np.array([])
     for rep in range(config['nTR']): # Repeat time vector for each TR
