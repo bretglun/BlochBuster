@@ -345,58 +345,57 @@ def plotFramePSD(config, frame, output):
         plot figure.
 
     '''
-    xmin, xmax = 0, config['kernelClock'][-1]
-    ymin, ymax = 0, 5
-    fig = plt.figure(figsize=(5, 5), facecolor=colors['bg'], dpi=output['dpi'])
-    ax = fig.gca(xlim=(xmin, xmax), ylim=(ymin, ymax), fc=colors['bg'])
-    for side in ['bottom', 'right', 'top', 'left']:
-        ax.spines[side].set_visible(False)  # remove default axes
-    plt.title(config['title'], color=colors['text'])
-    plt.xlabel('time[ms]', horizontalalignment='right', color=colors['text'])
-    #ax.xaxis.set_label_coords(1.1, .1)
-    #plt.ylabel('$|M_{xy}|$', rotation=0, color=colors['text'])
-    plt.tick_params(axis='y', labelleft='off')
-    plt.tick_params(axis='x', colors=colors['text'])
-    ax.xaxis.set_ticks_position('none')  # tick markers
-    ax.yaxis.set_ticks_position('none')
+    if 'fig' in output:
+        fig, timeLine = output['fig']
+    else:
+        xmin, xmax = 0, config['kernelClock'][-1]
+        ymin, ymax = 0, 5
+        fig = plt.figure(figsize=(5, 5), facecolor=colors['bg'], dpi=output['dpi'])
+        ax = fig.gca(xlim=(xmin, xmax), ylim=(ymin, ymax), fc=colors['bg'])
+        for side in ['bottom', 'right', 'top', 'left']:
+            ax.spines[side].set_visible(False)  # remove default axes
+        plt.title(config['title'], color=colors['text'])
+        plt.xlabel('time[ms]', horizontalalignment='right', color=colors['text'])
+        plt.tick_params(axis='y', labelleft='off')
+        plt.tick_params(axis='x', colors=colors['text'])
+        ax.xaxis.set_ticks_position('none')  # tick markers
+        ax.yaxis.set_ticks_position('none')
 
-    # draw x and y axes as arrows
-    bbox = ax.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
-    width, height = bbox.width, bbox.height  # get width and height of axes object
-    hw = 1/25*(ymax-ymin)  # manual arrowhead width and length
-    hl = 1/25*(xmax-xmin)
-    yhw = hw/(ymax-ymin)*(xmax-xmin) * height/width  # compute matching arrowhead length and width
-    yhl = hl/(xmax-xmin)*(ymax-ymin) * width/height
-    ax.arrow(xmin, 0, (xmax-xmin)*1.05, 0, fc=colors['text'], ec=colors['text'], lw=1, head_width=hw, head_length=hl, clip_on=False, zorder=100)
-    
-    ylim = {}
-    w1s = [event['w1'] for event in config['events'] if 'w1' in event]
-    if len(w1s)>0:
+        # draw x axis as arrow
+        bbox = ax.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
+        width, height = bbox.width, bbox.height  # get width and height of axes object
+        hw = 1/25*(ymax-ymin)  # manual arrowhead width and length
+        hl = 1/25*(xmax-xmin)
+        yhw = hw/(ymax-ymin)*(xmax-xmin) * height/width  # compute matching arrowhead length and width
+        yhl = hl/(xmax-xmin)*(ymax-ymin) * width/height
+        ax.arrow(xmin, 0, (xmax-xmin)*1.05, 0, fc=colors['text'], ec=colors['text'], lw=1, head_width=hw, head_length=hl, clip_on=False, zorder=100)
+        
+        ylim = {}
+        w1s = [event['w1'] for event in config['events']]
+        Gxs = [event['Gx'] for event in config['events']]
+        Gys = [event['Gy'] for event in config['events']]
+        Gzs = [event['Gz'] for event in config['events']]
         ylim['w1'] = 2.1*np.max([np.abs(w1) for w1 in w1s if np.abs(w1) < 50])
-    Gxs = [np.abs(event['Gx']) for event in config['events'] if 'Gx' in event]
-    Gys = [np.abs(event['Gy']) for event in config['events'] if 'Gy' in event]
-    Gzs = [np.abs(event['Gz']) for event in config['events'] if 'Gz' in event]
-    if not Gxs and not Gys and not Gzs:
-        ylim['Gx'] = ylim['Gy'] = ylim['Gz'] = 1.0
-    else:    
-        ylim['Gx'] = ylim['Gy'] = ylim['Gz'] = 2.1*np.max(np.concatenate((Gxs, Gys, Gzs)))
-    ypos = {board: y for board, y in [('w1',4), ('Gx',3), ('Gy',2), ('Gz',1)]}
-    for i, event in enumerate(config['events']):
-        firstFrame, lastFrame = getEventFrames(config, i)
-        xpos = config['kernelClock'][firstFrame]
-        w = config['kernelClock'][lastFrame] - xpos
-        for board in ['w1', 'Gx', 'Gy', 'Gz']:
-            if board in event:
-                if event[board]=='inf':
-                    h = 1/2.1
-                else:
+        ylim['Gx'] = ylim['Gy'] = ylim['Gz'] = 2.1*np.max(np.concatenate((np.abs(Gxs), np.abs(Gys), np.abs(Gzs))))
+        ypos = {board: y for board, y in [('w1',4), ('Gx',3), ('Gy',2), ('Gz',1)]}
+        for i, event in enumerate(config['events']):
+            firstFrame, lastFrame = getEventFrames(config, i)
+            xpos = config['kernelClock'][firstFrame]
+            w = config['kernelClock'][lastFrame] - xpos
+            for board in ['w1', 'Gx', 'Gy', 'Gz']:
+                if board in event:
                     h = .9*event[board]/ylim[board]
-                ax.add_patch(Rectangle((xpos, ypos[board]), w, h, lw=1, facecolor=colors['boards'][board], edgecolor=colors['text']))
-    for board in ['w1', 'Gx', 'Gy', 'Gz']:
-        ax.plot([xmin, xmax], [ypos[board], ypos[board]], color=colors['text'], lw=1, clip_on=False, zorder=100)
-        ax.text(0, ypos[board], board, fontsize=14,
-            color=colors['text'], horizontalalignment='right', verticalalignment='center')
-    ax.plot([config['tFrames'][frame]%config['TR'], config['tFrames'][frame]%config['TR']], [0, 5], color=colors['text'], lw=1, clip_on=False, zorder=100)
+                    ax.add_patch(Rectangle((xpos, ypos[board]), w, h, lw=1, facecolor=colors['boards'][board], edgecolor=colors['text']))
+        for board in ['w1', 'Gx', 'Gy', 'Gz']:
+            ax.plot([xmin, xmax], [ypos[board], ypos[board]], color=colors['text'], lw=1, clip_on=False, zorder=100)
+            ax.text(0, ypos[board], board, fontsize=14,
+                color=colors['text'], horizontalalignment='right', verticalalignment='center')
+    
+        # plot vertical time line:
+        timeLine, = ax.plot([config['tFrames'][frame]%config['TR'], config['tFrames'][frame]%config['TR']], [0, 5], color=colors['text'], lw=1, clip_on=False, zorder=100)
+        output['fig'] = fig, timeLine
+    timeLine.set_xdata([config['tFrames'][frame]%config['TR'], config['tFrames'][frame]%config['TR']])
+    fig.canvas.draw()
     return fig
 
 
