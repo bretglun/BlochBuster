@@ -747,8 +747,11 @@ def checkPulseSeq(config):
     # split any pulseSeq events with array values into separate events
     config['separatedPulseSeq'] = []
     for event in config['pulseSeq']:
-        if 'dwell' in event:
-            for i, t in enumerate(np.arange(event['t'], event['t'] + event['dur'], event['dwell'])):
+        arrLengths = [len(event[key]) for key in ['w1', 'Gx', 'Gy', 'Gz'] if key in event and isinstance(event[key], list)]
+        if len(set(arrLengths))>1:
+            raise Exception('If w1, Gx, Gy, Gz of an event are provided as lists, equal length is required')
+        if len(arrLengths) > 0: # arrays in event
+            for i, t in enumerate(np.linspace(event['t'], event['t'] + event['dur'], arrLengths[0])):
                 subEvent = {'t': t, 'dur': event['dwell']}
                 if i==0 and spoil in event:
                     subEvent['spoil'] = event['spoil']
