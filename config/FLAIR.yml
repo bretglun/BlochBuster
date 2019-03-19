@@ -1,12 +1,19 @@
-title: FLAIR
+title: T2-FLAIR
 pulseSeq:
   - t: 0
     FA: 180
+    B1: RF/inv_secant.yml
+    dur: 7.48
   - t: 1680
     FA: 90
-  - t: 1710
+    B1: 'RF/exc_min_phase.yml'
+    dur: 3
+  - t: 1740
     FA: 180
-TR: 2700
+    B1: 'RF/ref.yml'
+    dur: 3
+    phase: 90
+TR: 8000
 B0: 1.5
 components:
   - name: CSF
@@ -21,7 +28,13 @@ components:
     CS: 0.0
     T1: 920
     T2: 101
-speed: 0.1
+M0:
+  CSF: [1.0,0,0]
+  WM: [.98,0,0]
+  GM: [0.99,0,0]
+nIsochromats: 20
+isochromatStep: 0.005
+speed: 0.7
 output:
   - type: 3D
     file: FLAIR_3D.gif
