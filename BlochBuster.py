@@ -32,6 +32,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Circle, Rectangle
 from matplotlib.patches import FancyArrowPatch
 import numpy as np
+from numbers import Number
 import scipy.integrate as integrate
 import os.path
 import shutil
@@ -505,7 +506,7 @@ def applyPulseSeq(config, Meq, M0, w, T1, T2, xpos=0, ypos=0, zpos=0):
             wg += 2*np.pi*gyro*event['Gy']*ypos/1000 # [kRad/s]
             wg += 2*np.pi*gyro*event['Gz']*zpos/1000 # [kRad/s]
 
-            w1 = event['w1']
+            w1 = event['w1'] * np.exp(1j * np.radians(event['phase']))
 
             t = config['t'][firstFrame:lastFrame+1]
             if len(t)==0:
@@ -591,11 +592,56 @@ def addEventsToTimeVector(t, pulseSeq):
     return np.unique(roundEventTime(np.array(t)))
 
 
-def calculateFA(B1vector, dwell):
+def calculateFA(B1array, dwell):
     FA = 0
-    for B1 in B1vector:
+    for B1 in B1array:
         FA += 360*(dwell * gyro * np.real(B1) * 1e-6)
     return FA
+
+
+def RFfromList(RF):
+    ''' Read RF pulse from list and return as array.
+
+    Args:
+        RF: list of the RF amplitude, or a list containing two lists, where the second holds the RF phase in degrees.
+
+    Returns:
+        RF pulse as a numpy array (complex if phase was given)
+
+    '''
+    if isinstance(RF, list) and len(RF)>0:
+        if isinstance(RF[0], Number):
+            return np.array(RF)
+        elif len(RF)==2 and isinstance(RF[0], list) and len(RF[0])>0 and isinstance(RF[0][0], Number) and isinstance(RF[1], list) and len(RF[1])>0 and isinstance(RF[1][0], Number):
+            if len(RF[0]) == len(RF[1]):
+                return np.array(RF[0])*np.exp(1j*np.radians(RF[1]))
+            else:
+                raise Exception('Error reading RF list. Magnitude and phase lists must be of equal length.')
+        else:
+            raise Exception('Error reading RF list. RF must be a list of numbers or a list containing two lists of numbers (magnitude and phase).')
+    else:
+        raise Exception('Error reading RF list. RF must be non-empty list.')
+
+
+def loadRFfromFile(filename):
+    ''' Read RF pulse from file and return as array. The file is expected to contain a yaml list of the RF amplitude, or a list containing two lists, where the second holds the RF phase in degrees.
+
+    Args:
+        filename: filename of RF yaml file.
+
+    Returns:
+        RF pulse as a numpy array (complex if phase was given)
+
+    '''
+    with open(filename, 'r') as f:
+        try:
+            RF = yaml.safe_load(f)
+        except yaml.YAMLError as exc:
+            raise Exception('Error reading RF file {}'.format(filename)) from exc
+    if isinstance(RF, list):
+        return RFfromList(RF) 
+    else:
+        raise Exception('Error reading RF file {}. File must contain a yaml list.'.format(filename))
 
 
 def checkPulseSeq(config):
@@ -628,6 +674,9 @@ def checkPulseSeq(config):
             if any([key not in ['t', 'spoil'] for key in event]):
                 raise Exception('Spoiler event should only have event time t and spoil: true')
             event['spoiltext'] = 'spoiler'
+        if 'phase' in event and not isinstance(event['phase'], Number):
+            raise Exception('Event phase [degrees] must be numeric')
+
         if 'FA' in event or 'B1' in event: # RF-pulse event (possibly with gradient)
 
             # combinations not allowed:
@@ -639,15 +688,22 @@ def checkPulseSeq(config):
             if all([key in event for key in ['dur', 'dwell']]):
                 raise Exception('RF-pulse cannot have both "dur" and "dwell"')
             
+            if 'B1' in event:
+                if isinstance(event['B1'], list):
+                    event['B1'] = RFfromList(event['B1'])
+                elif isinstance(event['B1'], str):
+                    event['B1'] = loadRFfromFile(event['B1'])
+                elif isinstance(event['B1'], Number):
+                    event['B1'] = np.array([event['B1']])
+                else:
+                    raise Exception('Unknown type {} for B1'.format(type(event['B1'])))
+
             # calculate duration:
             if ('B1' not in event and 'dur' not in event) or ('dur' in event and event['dur']==0):
                 event['dur'] = instantDuration # handle "instant" RF pulse
             if 'dwell' in event:
                 event['dur'] = len(event['B1']) * event['dwell']
-            
-            if 'B1' in event and type(event['B1']) is not list:
-                event['B1'] = [event['B1']] # make it a list
-            
+                        
             # calculate dwell time:
             if 'dwell' not in event:
                 if 'B1' in event:
@@ -662,17 +718,12 @@ def checkPulseSeq(config):
             # calculate B1 or scale it to get prescribed FA
             if 'FA' in event:
                 if 'B1' not in event:
-                    event['B1'] = [event['FA']/(event['dur'] * 360 * gyro * 1e-6)]
+                    event['B1'] = np.array([event['FA']/(event['dur'] * 360 * gyro * 1e-6)])
                 else:
-                    event['B1'] = [B1 * event['FA'] / calcFA for B1 in event['B1']] # scale B1 to get prescribed FA
+                    event['B1'] *= event['FA'] / calcFA # scale B1 to get prescribed FA
             else:
                 event['FA'] = calcFA
 
-            # make B1 an array
-            event['B1'] = np.array(event['B1'])
-
-            if 'phase' in event: # Add phase to B1 if provided
-                event['B1'] = event['B1'] * np.exp(1j * np.radians(event['phase']))
             event['w1'] = [2 * np.pi * gyro * B1 * 1e-6 for B1 in event['B1']] # kRad / s
             event['RFtext'] = str(int(abs(event['FA'])))+u'\N{DEGREE SIGN}'+'-pulse'
         if any(key in event for key in ['Gx', 'Gy', 'Gz']): # Gradient (no RF)
@@ -701,12 +752,13 @@ def checkPulseSeq(config):
                 subEvent = {'t': t, 'dur': event['dwell']}
                 if i==0 and spoil in event:
                     subEvent['spoil'] = event['spoil']
-                if 'RFtext' in event:
-                    subEvent['RFtext'] = event['RFtext']
-                for key in ['w1', 'Gx', 'Gy', 'Gz']:
+                for key in ['w1', 'Gx', 'Gy', 'Gz', 'phase', 'RFtext']:
                     if key in event:
                         if type(event[key]) is list:
-                            subEvent[key] = event[key][i]
+                            if i < len(event[key]):
+                                subEvent[key] = event[key][i]
+                            else:
+                                raise Exception('Length of {} does not match other event properties'.format(key))
                         else:
                             subEvent[key] = event[key]
                 config['separatedPulseSeq'].append(subEvent)
@@ -718,11 +770,11 @@ def checkPulseSeq(config):
 
 
 def emptyEvent():
-    return {'w1': 0, 'Gx': 0, 'Gy': 0, 'Gz': 0, 'spoil': False}
+    return {'w1': 0, 'Gx': 0, 'Gy': 0, 'Gz': 0, 'phase': 0, 'spoil': False}
 
 
 def mergeEvent(event, event2merge, t):
-    for channel in ['w1', 'Gx', 'Gy', 'Gz']:
+    for channel in ['w1', 'Gx', 'Gy', 'Gz', 'phase']:
         if channel in event2merge:
             event[channel] += event2merge[channel]
     for text in ['RFtext', 'Gxtext', 'Gytext', 'Gztext', 'spoilText']:
@@ -737,7 +789,7 @@ def mergeEvent(event, event2merge, t):
 
 
 def detachEvent(event, event2detach, t):
-    for channel in ['w1', 'Gx', 'Gy', 'Gz']:
+    for channel in ['w1', 'Gx', 'Gy', 'Gz', 'phase']:
         if channel in event2detach:
             event[channel] -= event2detach[channel]
     for text in ['RFtext', 'Gxtext', 'Gytext', 'Gztext', 'spoilText']:
