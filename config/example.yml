@@ -2,14 +2,16 @@ title: Example config
 pulseSeq:
     - t: 2
       FA: 45
-      B1: inf
+      dur: 0
     - t: 5
       dur: 1
-      B1: 3
+      B1: [[ 1,  2,  4, 8, 16, 8,   4,   2,   1], 
+           [90, 60, 30, 0,  0, 0, -30, -60, -90]]
     - t: 10
       dur: 4
       FA: 180
       Gz: 5
+      phase: 270
     - t: 15
       dur: 5
       Gx: 10
