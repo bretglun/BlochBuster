@@ -508,6 +508,8 @@ def applyPulseSeq(config, Meq, M0, w, T1, T2, xpos=0, ypos=0, zpos=0):
             w1 = event['w1']
 
             t = config['t'][firstFrame:lastFrame+1]
+            if len(t)==0:
+                raise Exception("Corrupt config['events']")
             M[firstFrame:lastFrame+1] = integrate.odeint(derivs, M0, t, args=(Meq, wg, w1, T1, T2)) # Solve Bloch equation
 
     return M.transpose()
@@ -614,13 +616,11 @@ def checkPulseSeq(config):
                 raise Exception('PulseSeq key "{}" not supported'.format(item))
         if not 't' in event:
             raise Exception('All pulseSeq events must have an event time "t"')
-        else:
-            event['t'] = roundEventTime(event['t'])
-        if not any(key in event for key in ['FA', 'B1', 'Gx', 'Gy', 'Gz', 'spoil']):
+        if not any([key in event for key in ['FA', 'B1', 'Gx', 'Gy', 'Gz', 'spoil']]):
             raise Exception('Empty events not allowed')
-        if roundEventTime(event['t']) > config['TR']:
+        if event['t'] > config['TR']:
             raise Exception('pulseSeq event t exceeds TR')
-        if 'dur' in event and roundEventTime(event['t'] + event['dur']) > config['TR']:
+        if 'dur' in event and (event['t'] + event['dur']) > config['TR']:
             raise Exception('pulseSeq event t+dur exceeds TR')
         if 'spoil' in event: # Spoiler event
             if not event['spoil']:
@@ -698,7 +698,7 @@ def checkPulseSeq(config):
     for event in config['pulseSeq']:
         if 'dwell' in event:
             for i, t in enumerate(np.arange(event['t'], event['t'] + event['dur'], event['dwell'])):
-                subEvent = {'t': roundEventTime(t), 'dur': event['dwell']}
+                subEvent = {'t': t, 'dur': event['dwell']}
                 if i==0 and spoil in event:
                     subEvent['spoil'] = event['spoil']
                 if 'RFtext' in event:
@@ -780,20 +780,21 @@ def setupPulseSeq(config):
     newEvent = emptyEvent() # Start with empty "relaxation event"
     newEvent['t'] = 0
     for i, event in enumerate(config['separatedPulseSeq']):
+        eventTime = roundEventTime(event['t'])
         # Merge any events starting simultaneously:
-        if event['t']==newEvent['t']:
-            newEvent = mergeEvent(newEvent, event, event['t'])
+        if eventTime==newEvent['t']:
+            newEvent = mergeEvent(newEvent, event, eventTime)
         else:
             config['events'].append(dict(newEvent))
-            newEvent = mergeEvent(newEvent, event, event['t'])
+            newEvent = mergeEvent(newEvent, event, eventTime)
         if 'dur' in event: # event is ongoing unless no 'dur', i.e. spoiler event
-                ongoingEvents.append(event)
-                # sort ongoing events according to event end time:
-                sorted(ongoingEvents, key=lambda event: event['t'] + event['dur'], reverse=False)
+            ongoingEvents.append(event)
+            # sort ongoing events according to event end time:
+            sorted(ongoingEvents, key=lambda event: event['t'] + event['dur'], reverse=False)
         if event is config['separatedPulseSeq'][-1]:
-            nextEventTime = config['TR']
+            nextEventTime = roundEventTime(config['TR'])
         else:
-            nextEventTime = config['separatedPulseSeq'][i+1]['t']
+            nextEventTime = roundEventTime(config['separatedPulseSeq'][i+1]['t'])
         for stoppingEvent in [event for event in ongoingEvents[::-1] if roundEventTime(event['t'] + event['dur']) <= nextEventTime]:
             config['events'].append(dict(newEvent))
             newEvent = detachEvent(newEvent, stoppingEvent, roundEventTime(stoppingEvent['t'] + stoppingEvent['dur']))
