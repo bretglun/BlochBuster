@@ -220,7 +220,7 @@ def plotFrameMT(config, signal, frame, output):
         raise Exception('output "type" must be 3D, kspace, psd, xy (transversal) or z (longitudinal)')
 
     # create diagram
-    xmin, xmax = 0, config['t'][-1]
+    xmin, xmax = 0, config['tFrames'][-1]
     if output['type'] == 'xy':
         if 'abs' in output and not output['abs']:
             ymin, ymax = -1, 1
@@ -267,25 +267,25 @@ def plotFrameMT(config, signal, frame, output):
         for c in range(nComps):
             col = colors['comps'][c % len(colors['comps'])]
             if 'abs' in output and not output['abs']: # real and imag part of transversal magnetization
-                ax.plot(config['t'][:frame+1], signal[c,0,:frame+1], '-', lw=2, color=col)
+                ax.plot(config['tFrames'][:frame+1], signal[c,0,:frame+1], '-', lw=2, color=col)
                 col = colors['comps'][c+nComps+1 % len(colors['comps'])]
-                ax.plot(config['t'][:frame+1], signal[c,1,:frame+1], '-', lw=2, color=col)
+                ax.plot(config['tFrames'][:frame+1], signal[c,1,:frame+1], '-', lw=2, color=col)
             else: # absolute value of transversal magnetization
-                ax.plot(config['t'][:frame+1], np.linalg.norm(signal[c,:2,:frame+1], axis=0), '-', lw=2, color=col)
+                ax.plot(config['tFrames'][:frame+1], np.linalg.norm(signal[c,:2,:frame+1], axis=0), '-', lw=2, color=col)
         # plot sum component if both water and fat (special case)
         if all(key in [comp['name'] for comp in config['components']] for key in ['water', 'fat']):
             col = colors['comps'][nComps % len(colors['comps'])]
             if 'abs' in output and not output['abs']: # real and imag part of transversal magnetization
-                ax.plot(config['t'][:frame+1], np.mean(signal[:,0,:frame+1],0), '-', lw=2, color=col)
+                ax.plot(config['tFrames'][:frame+1], np.mean(signal[:,0,:frame+1],0), '-', lw=2, color=col)
                 col = colors['comps'][2*nComps+1 % len(colors['comps'])]
-                ax.plot(config['t'][:frame+1], np.mean(signal[:,1,:frame+1],0), '-', lw=2, color=col)
+                ax.plot(config['tFrames'][:frame+1], np.mean(signal[:,1,:frame+1],0), '-', lw=2, color=col)
             else: # absolute value of transversal magnetization
-                ax.plot(config['t'][:frame+1], np.linalg.norm(np.mean(signal[:,:2,:frame+1],0), axis=0), '-', lw=2, color=col)
+                ax.plot(config['tFrames'][:frame+1], np.linalg.norm(np.mean(signal[:,:2,:frame+1],0), axis=0), '-', lw=2, color=col)
 
     elif output['type'] == 'z':
         for c in range(nComps):
             col = colors['comps'][(c) % len(colors['comps'])]
-            ax.plot(config['t'][:frame+1], signal[c,2,:frame+1], '-', lw=2, color=col)
+            ax.plot(config['tFrames'][:frame+1], signal[c,2,:frame+1], '-', lw=2, color=col)
 
     return fig
 
@@ -1194,7 +1194,6 @@ def run(configFile, leapFactor=1, gifWriter='ffmpeg'):
                 elif output['type'] == 'psd':
                     fig = plotFramePSD(config, frame, output)
                 elif output['type'] in ['xy', 'z']:
-                    # TODO: repair plotFrameMT
                     fig = plotFrameMT(config, signal, frame, output)
                 plt.draw()
                 if gifWriter == 'ffmpeg':
