@@ -586,6 +586,17 @@ def roundEventTime(time):
 
 
 def addEventsToTimeVector(t, pulseSeq):
+    ''' Read event times from pulseSeq struct and add to input time vector.
+
+    Args:
+        t: input time vector [ms]
+        pulseSeq: pulse sequence struct of events with event times [ms]
+
+    Returns:
+        Array of unique sorted set of times in input time vector and event times.
+
+    '''
+
     t = list(t)
     for event in pulseSeq:
         t.append(event['t'])
