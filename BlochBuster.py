@@ -582,6 +582,16 @@ def getText(config):
 
 
 def roundEventTime(time):
+    ''' Round off time to certain precision.
+
+    Args:
+        time: time to be rounded [ms]
+
+    Returns:
+        rounded time
+
+    '''
+
     return np.round(time, decimals=6) # nanosecond precision should be enough
 
 
@@ -603,11 +613,22 @@ def addEventsToTimeVector(t, pulseSeq):
     return np.unique(roundEventTime(np.array(t)))
 
 
-def calculateFA(B1array, dur):
-    dwell = dur / len(B1array)
+def calculateFA(B1, dur):
+    ''' Calculate flip angle for given B1 waveform and duration.
+
+    Args:
+        B1: vector of B1 amplitudes [uT]
+        dur: duration of pulse [ms]
+
+    Returns:
+        Pulse flip angle
+
+    '''
+
+    dwell = dur / len(B1)
     FA = 0
-    for B1 in B1array:
-        FA += 360*(dwell * gyro * np.real(B1) * 1e-6)
+    for b in B1:
+        FA += 360*(dwell * gyro * np.real(b) * 1e-6)
     return FA
 
 
@@ -635,6 +656,15 @@ def loadGradfromFile(filename):
 
 
 def isNumList(obj):
+    ''' Check if object is non-empty list of numbers.
+
+    Args:
+        obj: object to be checked
+
+    Returns:
+        true or false
+
+    '''
     return isinstance(obj, list) and len(obj)>0 and isinstance(obj[0], Number)
 
 
@@ -803,10 +833,29 @@ def checkPulseSeq(config):
 
 
 def emptyEvent():
+    ''' Creates empty pulse sequence event.
+
+    Returns:
+        "empty" pulse sequence event
+
+    '''
+
     return {'w1': 0, 'Gx': 0, 'Gy': 0, 'Gz': 0, 'phase': 0, 'spoil': False}
 
 
 def mergeEvent(event, event2merge, t):
+    ''' Merge events by adding w1, Gx, Gy, Gz, phase and updating event texts. Also update event time t.
+
+    Args:
+        event: original event
+        event2merge: event to be merged
+        t:  new event time
+
+    Returns:
+        Merged event
+
+    '''
+
     for channel in ['w1', 'Gx', 'Gy', 'Gz', 'phase']:
         if channel in event2merge:
             event[channel] += event2merge[channel]
@@ -822,6 +871,18 @@ def mergeEvent(event, event2merge, t):
 
 
 def detachEvent(event, event2detach, t):
+    ''' Detach events by subtracting w1, Gx, Gy, Gz, phase and removing event texts. Also update event time t.
+
+    Args:
+        event: original event
+        event2detach: event to be detached
+        t:  new event time
+
+    Returns:
+        Detached event
+
+    '''
+
     for channel in ['w1', 'Gx', 'Gy', 'Gz', 'phase']:
         if channel in event2detach:
             event[channel] -= event2detach[channel]
@@ -833,6 +894,17 @@ def detachEvent(event, event2detach, t):
 
 
 def getPrescribedTimeVector(config, nTR):
+    ''' Get time vector of animations prescribed by 'speed', 'TR', and 'fps' in config.
+
+    Args:
+        config: configuration dictionary
+        nTR:    number of TR:s in time vector
+
+    Returns:
+        Time vector prescribed by config
+
+    '''
+
     dt = 1e3/config['fps']*config['speed'] # Animation time resolution [msec]
     kernelTime = np.arange(0, config['TR'], dt) # kernel time vector [msec]
 
@@ -1051,6 +1123,16 @@ def spherical2cartesian(spherical):
 
 
 def resampleOnPrescribedTimeFrames(vectors, config):
+    ''' Resample (interpolate) given vectors corresponding to time vector config['t'] on time vector config['tFrames]. Also resample text and alpha channels in config similiarly.
+
+    Args:
+        vectors: magnetization vectors of shape [nx, ny, nz, nComps, nIsochromats, 3, len(config['t'])]
+
+    Returns:
+        resampled magnetization vectors of shape [nx, ny, nz, nComps, nIsochromats, 3, len(config['tFrames'])]
+
+    '''
+
     config['tFrames'] = getPrescribedTimeVector(config, config['nTR'])
     newShape = list(vectors.shape)
     newShape[6] = len(config['tFrames'])
@@ -1062,10 +1144,10 @@ def resampleOnPrescribedTimeFrames(vectors, config):
                     for i in range(newShape[4]):
                         for dim in range(newShape[5]):
                             resampledVectors[x,y,z,c,i,dim,:] = np.interp(config['tFrames'], config['t'], vectors[x,y,z,c,i,dim,:])
+
     # resample text alpha channels:
     for channel in ['RFalpha', 'Galpha', 'spoilAlpha']:
         alphaVector = np.zeros([len(config['tFrames'])])
-        #config[channel] = np.interp(config['tFrames'], config['t'], config[channel])
         for i in range(len(alphaVector)):
             if i == len(alphaVector)-1:
                 ks = np.where(config['t']>=config['tFrames'][i])[0]
@@ -1073,6 +1155,7 @@ def resampleOnPrescribedTimeFrames(vectors, config):
                 ks = np.where(np.logical_and(config['t']>=config['tFrames'][i], config['t']<config['tFrames'][i+1]))[0]
             alphaVector[i] = np.max(config[channel][ks])
         config[channel] = alphaVector
+
     # resample text:
     for text in ['RFtext', 'Gtext']:
         textVector = np.full([len(config['tFrames'])], '', dtype=object)
@@ -1080,6 +1163,7 @@ def resampleOnPrescribedTimeFrames(vectors, config):
             k = np.where(config['t']>=config['tFrames'][i])[0][0]
             textVector[i] = config[text][k]
         config[text] = textVector
+
     return resampledVectors
 
 
