@@ -631,7 +631,7 @@ def RFfromStruct(RF):
     ''' Read RF pulse from struct and return as array.
 
     Args:
-        RF: list of the RF amplitude (B1), or a struct with key 'B1' and optionally 'freq' and/or 'phase', each containing a list of equal length. B1 is the RF amplitude [uT], 'freq' is frequency modulation [Hz?], and 'phase' is RF phase modulation [degrees].
+        RF: list of the RF amplitude, or a struct with key 'amp' and optionally 'phase', each containing a list of equal length. amp is the RF amplitude [uT], and 'phase' is RF phase modulation [degrees].
 
     Returns:
         RF pulse as a (possibly complex) numpy array
@@ -640,16 +640,14 @@ def RFfromStruct(RF):
 
     if isNumList(RF):
         B1 = np.array(RF)
-    elif 'B1' in RF and isNumList(RF['B1']):
-        B1 = np.array(RF['B1'])
+    elif 'amp' in RF and isNumList(RF['amp']):
+        B1 = np.array(RF['amp'])
         if 'phase' in RF:
             if not isNumList(RF['phase']):
                 raise Exception("'phase' of RF struct must be numerical list")
             elif len(RF['phase']) != len(B1):
-                raise Exception("'B1' and 'phase' of RF struct must have equal length")
+                raise Exception("'amp' and 'phase' of RF struct must have equal length")
             B1 = B1 * np.exp(1j*np.radians(RF['phase']))
-        if 'freq' in RF:
-            raise Exception('RF frequency modulation not implemented yet!')
     else: 
         raise Exception('Unknown format of RF struct')
     return B1

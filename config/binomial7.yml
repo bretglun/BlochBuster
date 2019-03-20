@@ -15,8 +15,7 @@ pulseSeq:
   - t: 13.8
     FA: 1.4
 TR: 20
-B0: 1.5 
-B1: 5.0 
+B0: 1.5
 components:
   - name: water
     CS: 0.0
