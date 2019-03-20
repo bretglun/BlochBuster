@@ -1,0 +1,29 @@
+title: Spectral-Spatial Excitation
+pulseSeq:
+  - t: 0
+    FA: 90
+    B1: 'RF/spsp.yml'
+    dur: 4.36
+    Gx: 'RF/spsp.yml'
+    Gy: 'RF/spsp.yml'
+TR: 10
+B0: 3.0
+components:
+  - name: water
+  - name: fat
+    CS: 3.4
+locations:
+  [[ 0,  0, .7, .7, .7,  0,  0],
+   [ 0, .7, .7, .7, .7, .7,  0],
+   [.7, .7, .7, .7, .7, .7, .7],
+   [.7, .7, .7, .7, .7, .7, .7],
+   [.7, .7, .7, .7, .7, .7, .7],
+   [ 0, .7, .7, .7, .7, .7,  0],
+   [ 0,  0, .7, .7, .7,  0,  0]]
+locSpacing: 0.2
+speed: 0.005
+output:
+  - type: 3D
+    file: SpSp_3D.gif
+  - type: psd
+    file: SpSp_psd.gif
