@@ -592,7 +592,8 @@ def addEventsToTimeVector(t, pulseSeq):
     return np.unique(roundEventTime(np.array(t)))
 
 
-def calculateFA(B1array, dwell):
+def calculateFA(B1array, dur):
+    dwell = dur / len(B1array)
     FA = 0
     for B1 in B1array:
         FA += 360*(dwell * gyro * np.real(B1) * 1e-6)
@@ -680,13 +681,8 @@ def checkPulseSeq(config):
         if 'FA' in event or 'B1' in event: # RF-pulse event (possibly with gradient)
 
             # combinations not allowed:
-            if 'B1' in event and not any([key in event for key in ['dur', 'dwell']]):
-                raise Exception('RF-pulse must provide "dur" or "dwell" along with "B1"')
-            if 'dwell' in event:
-                if 'B1' not in event or type(event['B1']) is not list:
-                    raise Exception('"dwell" should be used for RF-pulses with "B1" as a list')
-            if all([key in event for key in ['dur', 'dwell']]):
-                raise Exception('RF-pulse cannot have both "dur" and "dwell"')
+            if 'B1' in event and not 'dur' in event:
+                raise Exception('RF-pulse must provide "dur" along with "B1"')
             
             if 'B1' in event:
                 if isinstance(event['B1'], list):
@@ -701,19 +697,10 @@ def checkPulseSeq(config):
             # calculate duration:
             if ('B1' not in event and 'dur' not in event) or ('dur' in event and event['dur']==0):
                 event['dur'] = instantDuration # handle "instant" RF pulse
-            if 'dwell' in event:
-                event['dur'] = len(event['B1']) * event['dwell']
-                        
-            # calculate dwell time:
-            if 'dwell' not in event:
-                if 'B1' in event:
-                    event['dwell'] = event['dur'] / len(event['B1'])
-                else:
-                    event['dwell'] = event['dur']
             
             # calculate FA prescribed by B1
             if 'B1' in event:
-                calcFA = calculateFA(event['B1'], event['dwell'])
+                calcFA = calculateFA(event['B1'], event['dur'])
 
             # calculate B1 or scale it to get prescribed FA
             if 'FA' in event:
@@ -752,7 +739,8 @@ def checkPulseSeq(config):
             raise Exception('If w1, Gx, Gy, Gz of an event are provided as lists, equal length is required')
         if len(arrLengths) > 0: # arrays in event
             for i, t in enumerate(np.linspace(event['t'], event['t'] + event['dur'], arrLengths[0])):
-                subEvent = {'t': t, 'dur': event['dwell']}
+                subDur = event['dur'] / arrLengths[0]
+                subEvent = {'t': t, 'dur': subDur}
                 if i==0 and spoil in event:
                     subEvent['spoil'] = event['spoil']
                 for key in ['w1', 'Gx', 'Gy', 'Gz', 'phase', 'RFtext']:
