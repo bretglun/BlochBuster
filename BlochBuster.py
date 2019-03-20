@@ -747,8 +747,9 @@ def checkPulseSeq(config):
                 raise Exception('Gradient must have a specified duration>0 (dur [ms])')
             for g in ['Gx', 'Gy', 'Gz']:
                 if g in event:
-                    if isinstance(event[g], str):
-                        event[g] = loadGradfromFile(event[g])
+                    if 'file' in event[g] and 'amp' in event[g]:
+                        grad = loadGradfromFile(event[g]['file'])
+                        event[g] = list(np.array(grad) / np.max(grad) * event[g]['amp'])
                     elif not isinstance(event[g], Number) and not (isinstance(event[g], list) and len(event[g])>0):
                         raise Exception('Unknown type {} for B1'.format(type(event[g])))
                     
