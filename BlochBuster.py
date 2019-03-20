@@ -600,30 +600,6 @@ def calculateFA(B1array, dur):
     return FA
 
 
-def RFfromList(RF):
-    ''' Read RF pulse from list and return as array.
-
-    Args:
-        RF: list of the RF amplitude, or a list containing two lists, where the second holds the RF phase in degrees.
-
-    Returns:
-        RF pulse as a numpy array (complex if phase was given)
-
-    '''
-    if isinstance(RF, list) and len(RF)>0:
-        if isinstance(RF[0], Number):
-            return np.array(RF)
-        elif len(RF)==2 and isinstance(RF[0], list) and len(RF[0])>0 and isinstance(RF[0][0], Number) and isinstance(RF[1], list) and len(RF[1])>0 and isinstance(RF[1][0], Number):
-            if len(RF[0]) == len(RF[1]):
-                return np.array(RF[0])*np.exp(1j*np.radians(RF[1]))
-            else:
-                raise Exception('Error reading RF list. Magnitude and phase lists must be of equal length.')
-        else:
-            raise Exception('Error reading RF list. RF must be a list of numbers or a list containing two lists of numbers (magnitude and phase).')
-    else:
-        raise Exception('Error reading RF list. RF must be non-empty list.')
-
-
 def loadGradfromFile(filename):
     ''' Read gradient waveform from file and return as list. The file is expected to contain a yaml list of the gradient in mT/m, or a field 'grad' holding such a list.
 
@@ -647,6 +623,38 @@ def loadGradfromFile(filename):
             raise Exception('Error reading gradient file {}. File must contain a yaml list of numbers.'.format(filename))
 
 
+def isNumList(obj):
+    return isinstance(obj, list) and len(obj)>0 and isinstance(obj[0], Number)
+
+
+def RFfromStruct(RF):
+    ''' Read RF pulse from struct and return as array.
+
+    Args:
+        RF: list of the RF amplitude (B1), or a struct with key 'B1' and optionally 'freq' and/or 'phase', each containing a list of equal length. B1 is the RF amplitude [uT], 'freq' is frequency modulation [Hz?], and 'phase' is RF phase modulation [degrees].
+
+    Returns:
+        RF pulse as a (possibly complex) numpy array
+
+    '''
+
+    if isNumList(RF):
+        B1 = np.array(RF)
+    elif 'B1' in RF and isNumList(RF['B1']):
+        B1 = np.array(RF['B1'])
+        if 'phase' in RF:
+            if not isNumList(RF['phase']):
+                raise Exception("'phase' of RF struct must be numerical list")
+            elif len(RF['phase']) != len(B1):
+                raise Exception("'B1' and 'phase' of RF struct must have equal length")
+            B1 = B1 * np.exp(1j*np.radians(RF['phase']))
+        if 'freq' in RF:
+            raise Exception('RF frequency modulation not implemented yet!')
+    else: 
+        raise Exception('Unknown format of RF struct')
+    return B1
+
+
 def loadRFfromFile(filename):
     ''' Read RF pulse from file and return as array. The file is expected to contain a yaml list of the RF amplitude, or a list containing two lists, where the second holds the RF phase in degrees.
 
@@ -659,13 +667,10 @@ def loadRFfromFile(filename):
     '''
     with open(filename, 'r') as f:
         try:
-            RF = yaml.safe_load(f)
+            RFstruct = yaml.safe_load(f)
         except yaml.YAMLError as exc:
             raise Exception('Error reading RF file {}'.format(filename)) from exc
-    if isinstance(RF, list):
-        return RFfromList(RF) 
-    else:
-        raise Exception('Error reading RF file {}. File must contain a yaml list.'.format(filename))
+    return RFfromStruct(RFstruct)
 
 
 def checkPulseSeq(config):
@@ -711,14 +716,12 @@ def checkPulseSeq(config):
                 raise Exception('RF-pulse must provide "dur" along with "B1"')
             
             if 'B1' in event:
-                if isinstance(event['B1'], list):
-                    event['B1'] = RFfromList(event['B1'])
+                if isinstance(event['B1'], Number):
+                    event['B1'] = np.array([event['B1']])
                 elif isinstance(event['B1'], str):
                     event['B1'] = loadRFfromFile(event['B1'])
-                elif isinstance(event['B1'], Number):
-                    event['B1'] = np.array([event['B1']])
                 else:
-                    raise Exception('Unknown type {} for B1'.format(type(event['B1'])))
+                    event['B1'] = RFfromStruct(event['B1'])
 
             # calculate duration:
             if ('B1' not in event and 'dur' not in event) or ('dur' in event and event['dur']==0):
@@ -1192,6 +1195,7 @@ def run(configFile, leapFactor=1, gifWriter='ffmpeg'):
                 elif output['type'] == 'psd':
                     fig = plotFramePSD(config, frame, output)
                 elif output['type'] in ['xy', 'z']:
+                    # TODO: repair plotFrameMT
                     fig = plotFrameMT(config, signal, frame, output)
                 plt.draw()
                 if gifWriter == 'ffmpeg':
