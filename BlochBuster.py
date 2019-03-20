@@ -750,9 +750,6 @@ def checkPulseSeq(config):
                         event[g] = list(np.array(grad) / np.max(grad) * event[g]['amp'])
                     elif not isinstance(event[g], Number) and not (isinstance(event[g], list) and len(event[g])>0):
                         raise Exception('Unknown type {} for B1'.format(type(event[g])))
-                    
-                    # TODO: fix gradient text
-                    #event['{}text'.format(g)] = '{}: {} mT/m'.format(g, event[g])
     
     # Sort pulseSeq according to event time
     config['pulseSeq'] = sorted(config['pulseSeq'], key=lambda event: event['t'])
@@ -784,6 +781,8 @@ def checkPulseSeq(config):
                                 raise Exception('Length of {} does not match other event properties'.format(key))
                         else:
                             subEvent[key] = event[key]
+                        if key in ['Gx', 'Gy', 'Gz']:
+                            subEvent['{}text'.format(key)] = '{}: {:2.0f} mT/m'.format(key, subEvent[key])
                 config['separatedPulseSeq'].append(subEvent)
         else:
             config['separatedPulseSeq'].append(event)
