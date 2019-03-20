@@ -624,6 +624,29 @@ def RFfromList(RF):
         raise Exception('Error reading RF list. RF must be non-empty list.')
 
 
+def loadGradfromFile(filename):
+    ''' Read gradient waveform from file and return as list. The file is expected to contain a yaml list of the gradient in mT/m, or a field 'grad' holding such a list.
+
+    Args:
+        filename: filename of gradient yaml file.
+
+    Returns:
+        Gradient waveform as a list
+
+    '''
+    with open(filename, 'r') as f:
+        try:
+            grad = yaml.safe_load(f)
+        except yaml.YAMLError as exc:
+            raise Exception('Error reading gradient file {}'.format(filename)) from exc
+        if 'grad' in grad:
+            grad = grad['grad']
+        if isinstance(grad, list) and len(grad)>0 and isinstance(grad[0], Number):
+            return grad
+        else:
+            raise Exception('Error reading gradient file {}. File must contain a yaml list of numbers.'.format(filename))
+
+
 def loadRFfromFile(filename):
     ''' Read RF pulse from file and return as array. The file is expected to contain a yaml list of the RF amplitude, or a list containing two lists, where the second holds the RF phase in degrees.
 
@@ -675,8 +698,11 @@ def checkPulseSeq(config):
             if any([key not in ['t', 'spoil'] for key in event]):
                 raise Exception('Spoiler event should only have event time t and spoil: true')
             event['spoiltext'] = 'spoiler'
-        if 'phase' in event and not isinstance(event['phase'], Number):
-            raise Exception('Event phase [degrees] must be numeric')
+        if 'phase' in event:
+            if not isinstance(event['phase'], Number):
+                raise Exception('Event phase [degrees] must be numeric')
+            if not ('FA' in event or 'B1' in event):
+                raise Exception('Only RF events can have a phase')
 
         if 'FA' in event or 'B1' in event: # RF-pulse event (possibly with gradient)
 
@@ -707,26 +733,24 @@ def checkPulseSeq(config):
                 if 'B1' not in event:
                     event['B1'] = np.array([event['FA']/(event['dur'] * 360 * gyro * 1e-6)])
                 else:
-                    event['B1'] *= event['FA'] / calcFA # scale B1 to get prescribed FA
+                    event['B1'] = event['B1'] * event['FA'] / calcFA # scale B1 to get prescribed FA
             else:
                 event['FA'] = calcFA
 
             event['w1'] = [2 * np.pi * gyro * B1 * 1e-6 for B1 in event['B1']] # kRad / s
             event['RFtext'] = str(int(abs(event['FA'])))+u'\N{DEGREE SIGN}'+'-pulse'
-        if any(key in event for key in ['Gx', 'Gy', 'Gz']): # Gradient (no RF)
+        if any([key in event for key in ['Gx', 'Gy', 'Gz']]): # Gradient (no RF)
             if not ('dur' in event and event['dur']>0):
                 raise Exception('Gradient must have a specified duration>0 (dur [ms])')
-            if 'FA' not in event and 'phase' in event:
-                raise Exception('Gradient event should have no phase')
             for g in ['Gx', 'Gy', 'Gz']:
                 if g in event:
-                    try:
-                        event[g] = float(event[g])
-                    except ValueError:
-                        print('{} must be a number'.format(g))
-                        raise ValueError
+                    if isinstance(event[g], str):
+                        event[g] = loadGradfromFile(event[g])
+                    elif not isinstance(event[g], Number) and not (isinstance(event[g], list) and len(event[g])>0):
+                        raise Exception('Unknown type {} for B1'.format(type(event[g])))
                     
-                    event['{}text'.format(g)] = '{}: {} mT/m'.format(g, event[g])
+                    # TODO: fix gradient text
+                    #event['{}text'.format(g)] = '{}: {} mT/m'.format(g, event[g])
     
     # Sort pulseSeq according to event time
     config['pulseSeq'] = sorted(config['pulseSeq'], key=lambda event: event['t'])
@@ -735,11 +759,17 @@ def checkPulseSeq(config):
     config['separatedPulseSeq'] = []
     for event in config['pulseSeq']:
         arrLengths = [len(event[key]) for key in ['w1', 'Gx', 'Gy', 'Gz'] if key in event and isinstance(event[key], list)]
-        if len(set(arrLengths))>1:
-            raise Exception('If w1, Gx, Gy, Gz of an event are provided as lists, equal length is required')
         if len(arrLengths) > 0: # arrays in event
-            for i, t in enumerate(np.linspace(event['t'], event['t'] + event['dur'], arrLengths[0])):
-                subDur = event['dur'] / arrLengths[0]
+            arrLength = np.max(arrLengths)
+            if len(set(arrLengths))==2 and 1 in set(arrLengths):
+                # extend any singleton arrays to full length
+                for key in ['w1', 'Gx', 'Gy', 'Gz']:
+                    if key in event and isinstance(event[key], list) and len(event[key])==1:
+                        event[key] *= arrLength
+            elif len(set(arrLengths))>1:
+                raise Exception('If w1, Gx, Gy, Gz of an event are provided as lists, equal length is required')
+            for i, t in enumerate(np.linspace(event['t'], event['t'] + event['dur'], arrLength, endpoint=False)):
+                subDur = event['dur'] / arrLength
                 subEvent = {'t': t, 'dur': subDur}
                 if i==0 and spoil in event:
                     subEvent['spoil'] = event['spoil']
