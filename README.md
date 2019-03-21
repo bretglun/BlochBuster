@@ -7,6 +7,8 @@
 
 *You should have received a copy of the GNU General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.*
 
+![](out/FLAIR_3D.gif)
+
 ABOUT
 -----
 BlochBuster is a nuclear magnetic resonance Bloch equation simulator written in Python. 
