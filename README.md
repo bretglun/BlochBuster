@@ -14,20 +14,29 @@ It simulates magnetization vectors based on the Bloch equations, including prece
 BlochBuster outputs animated gif or mp4 files, which can be 3D plots of the magnetization vectors, plots of transverse and longitudinal magnetization, or pulse sequence diagrams.
 Input paramaters are provided by human readable configuration files.
 The animations are made using ffmpeg.
+Pulse sequences may include arbitrary RF pulses and gradient fields.
 
 CONFIG FILES
 ------------
 The configuration files are in yaml-format. 
-See example configuration file `config/example.yml` provided with BlochBuster for details. 
+See example configuration file `config/example.yml` provided with BlochBuster for an example of supported features. 
+RF pulses and gradient waveforms may be specified in separate yaml-files.
 
 The "pulseSeq" field is a list of events such as RF pulses, gradients or spoiling. 
 Each event happens at given time "t" [msec] with duration "dur" [msec].
-An RF event may have a "FA" denoting the prescribed flip angle, or a "B1" field strength [&mu;T] that determines the FA together with the duration. 
-Optionally, "phase" can be used to alter the phase of the RF pulse. 
-Setting dur: 0 gives an "instant" RF pulse; the clock will freeze during flipping and no relaxation or precession will occur.
+An RF event may have a "FA" denoting the prescribed flip angle, and/or a "B1" vector [&mu;T] that determines the RF waveform played over the duration of the event. 
+The waveform may be provided as a struct with fields "amp" [&mu;T] and optionally "phase" [degrees] for phase modulated pulses. 
+If no B1 is provided, a hard pulse is assumed.
+Optionally, the global phase of the RF pulse can be altered by specifying a "phase" [degrees] in the pulse sequence event.
+Setting dur: 0 or providing no dur gives a "near-instant" RF pulse so that no relaxation or precession will occur.
+
 A gradient event is specified by "Gx", "Gy", and/or "Gz" [mT/m]. 
-A graident may be played together with an RF-pulse, if "Gx", "Gy", and/or "Gz" is specified in the RF event.
+These may be given as vectors, enabling arbitrary waveforms.
+A graident may be played together with an RF-pulse, if "Gx", "Gy", and/or "Gz" are specified in the RF event.
 A spoiler event is indicated by "spoil: true", and spoils all transverse magnetization. 
+
+B1, Gx, Gy, and Gy may be loaded from a yaml file by providing the filename as a string. 
+The file should contain the waveform as a list, or B1 at keys 'amp' and/or 'phase' as lists and G as a list at key 'grad'.
 
 The pulse sequence repeats after "TR" msec, with "nTR" repetitions. The main field "B0" is given in T.
 
@@ -43,7 +52,7 @@ If an initial state other than equilibrium is desired, it can be specified in th
 
 White background can be toggled by setting "color: white" under the "background" field.
 
-The animation speed is determined by the "speed" field, where 1 corresponds to real-time. 
+The animation speed is determined by the "speed" field, where 1 corresponds to real-time. RF pulses are plotted at a speed of 90 degrees/second.
 
 The output is specified by a list, where the "type" can be:
 - 3D: animated 3D plot of the magnetization vectors
