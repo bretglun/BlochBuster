@@ -2,18 +2,25 @@ title: Binomial-7
 pulseSeq:
   - t: 0
     FA: 1.4
+    dur: 0.5
   - t: 2.3
     FA: 8.4
+    dur: 0.5
   - t: 4.6
     FA: 21.1
+    dur: 0.5
   - t: 6.9
     FA: 28.1
+    dur: 0.5
   - t: 9.2
     FA: 21.1
+    dur: 0.5
   - t: 11.5
     FA: 8.4
+    dur: 0.5
   - t: 13.8
     FA: 1.4
+    dur: 0.5
 TR: 20
 B0: 1.5
 components:

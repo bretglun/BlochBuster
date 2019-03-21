@@ -2,7 +2,7 @@ title: Example config
 pulseSeq:
     - t: 2
       FA: 45
-      dur: 0
+      dur: 0.1
     - t: 5
       dur: 1
       B1: 
@@ -53,7 +53,14 @@ M0:
 locSpacing: 0.001
 nIsochromats: 20
 isochromatStep: 0.01
-speed: 0.003
+speed: 
+  - t: 0
+    speed: 0.003
+  - t: 2
+    speed: 0.0001
+  - t: 2.1
+    speed: 0.005
+maxRFspeed: 0.002
 background:
   color: white
 output: 

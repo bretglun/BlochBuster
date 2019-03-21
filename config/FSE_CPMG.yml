@@ -2,17 +2,27 @@ title: FSE (CPMG)
 pulseSeq:
   - t: 0
     FA: 90
+    B1: 'RF/exc_min_phase.yml'
+    dur: 3
   - t: 10
     FA: 180
+    B1: 'RF/ref.yml'
+    dur: 3
     phase: 90
   - t: 30
     FA: 180
+    B1: 'RF/ref.yml'
+    dur: 3
     phase: 90
   - t: 50
     FA: 180
+    B1: 'RF/ref.yml'
+    dur: 3
     phase: 90
   - t: 70
     FA: 180
+    B1: 'RF/ref.yml'
+    dur: 3
     phase: 90
 TR: 130
 B0: 1.5

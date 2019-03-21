@@ -28,7 +28,6 @@ An RF event may have a "FA" denoting the prescribed flip angle, and/or a "B1" ve
 The waveform may be provided as a struct with fields "amp" [&mu;T] and optionally "phase" [degrees] for phase modulated pulses. 
 If no B1 is provided, a hard pulse is assumed.
 Optionally, the global phase of the RF pulse can be altered by specifying a "phase" [degrees] in the pulse sequence event.
-Setting dur: 0 or providing no dur gives a "near-instant" RF pulse so that no relaxation or precession will occur.
 
 A gradient event is specified by "Gx", "Gy", and/or "Gz" [mT/m]. 
 These may be given as vectors, enabling arbitrary waveforms.
@@ -52,7 +51,7 @@ If an initial state other than equilibrium is desired, it can be specified in th
 
 White background can be toggled by setting "color: white" under the "background" field.
 
-The animation speed is determined by the "speed" field, where 1 corresponds to real-time. RF pulses are plotted at a speed of 90 degrees/second.
+The animation speed is determined by the "speed" field, where 1 corresponds to real-time. Varying animation speed over the TR can be achieved by providing "speed" as a list where each element has field "t" [msec] and "speed". The maximum animation speed of RF pulses can be controlled by the "maxRFspeed" field (default is 0.001).
 
 The output is specified by a list, where the "type" can be:
 - 3D: animated 3D plot of the magnetization vectors

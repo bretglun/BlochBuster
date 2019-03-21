@@ -2,6 +2,7 @@ title: Spoiled Gradient Echo
 pulseSeq:
   - t: 0
     FA: 15
+    dur: 0.5
   - t: 5
     spoil: true
 TR: 5

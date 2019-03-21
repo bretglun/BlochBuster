@@ -2,8 +2,10 @@ title: Binomial-2
 pulseSeq:
   - t: 0
     FA: 45
+    dur: 0.5
   - t: 2.3
     FA: 45
+    dur: 0.5
 TR: 10
 B0: 1.5
 components:

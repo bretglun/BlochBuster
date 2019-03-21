@@ -2,11 +2,14 @@ title: STIR
 pulseSeq:
   - t: 0
     FA: 180
+    dur: 4.0
   - t: 180
     FA: 90
+    dur: 2.0
   - t: 190
     FA: 180
     phase: 180
+    dur: 3.0
 TR: 1000
 B0: 1.5
 components:

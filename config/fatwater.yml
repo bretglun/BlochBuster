@@ -2,7 +2,7 @@ title: Fat and Water Precession (1.5 T)
 pulseSeq:
   - t: 0
     FA: 90
-    dur: 0
+    dur: 0.1
 TR: 15
 B0: 1.5 
 components:
@@ -15,6 +15,7 @@ components:
     T1: 260
     T2: 84
 speed: 0.001
+maxRFspeed: 0.0001
 output:
   - type: 3D
     file: fatwater_3D.gif

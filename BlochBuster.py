@@ -719,8 +719,6 @@ def checkPulseSeq(config):
         config: configuration dictionary.
     '''
 
-    instantDuration = 1e-3 # 1 us
-
     if 'pulseSeq' not in config:
         config['pulseSeq'] = []
     allowedKeys = ['t', 'spoil', 'dur', 'FA', 'B1', 'phase', 'Gx', 'Gy', 'Gz']
@@ -734,14 +732,19 @@ def checkPulseSeq(config):
             raise Exception('Empty events not allowed')
         if event['t'] > config['TR']:
             raise Exception('pulseSeq event t exceeds TR')
-        if 'dur' in event and (event['t'] + event['dur']) > config['TR']:
-            raise Exception('pulseSeq event t+dur exceeds TR')
         if 'spoil' in event: # Spoiler event
             if not event['spoil']:
                 raise Exception('Spoiler event must have spoil: true')
             if any([key not in ['t', 'spoil'] for key in event]):
                 raise Exception('Spoiler event should only have event time t and spoil: true')
             event['spoiltext'] = 'spoiler'
+        else:
+            if 'dur' not in event:
+                raise Exception('All pulseSeq events except spoiler events must have a duration dur [msec]')
+            if roundEventTime(event['dur'])==0:
+                raise Exception('Event duration is too short')
+            if (event['t'] + event['dur']) > config['TR']:
+                raise Exception('pulseSeq event t+dur exceeds TR')
         if 'phase' in event:
             if not isinstance(event['phase'], Number):
                 raise Exception('Event phase [degrees] must be numeric')
@@ -761,10 +764,6 @@ def checkPulseSeq(config):
                     event['B1'] = loadRFfromFile(event['B1'])
                 else:
                     event['B1'] = RFfromStruct(event['B1'])
-
-            # calculate duration:
-            if ('B1' not in event and 'dur' not in event) or ('dur' in event and event['dur']==0):
-                event['dur'] = instantDuration # handle "instant" RF pulse
             
             # calculate FA prescribed by B1
             if 'B1' in event:
@@ -897,7 +896,7 @@ def detachEvent(event, event2detach, t):
 
 
 def getPrescribedTimeVector(config, nTR):
-    ''' Get time vector of animations prescribed by 'speed', 'TR', and 'fps' in config.
+    ''' Get time vector of animations prescribed by 'speed', 'TR', 'fps', and 'maxRFspeed' in config.
 
     Args:
         config: configuration dictionary
@@ -908,20 +907,27 @@ def getPrescribedTimeVector(config, nTR):
 
     '''
 
-    dt = 1e3/config['fps']*config['speed'] # Animation time resolution [msec]
-    kernelTime = np.arange(0, config['TR'], dt) # kernel time vector [msec]
-
-    slowRFpulses = True
-    if slowRFpulses:
-        for event in config['pulseSeq']:
-            if 'FA' in event:
-                dt = event['dur'] / config['fps'] * 90 / abs(event['FA']) # dt [msec] that gives one sec per 90 flip
-                kernelTime = np.concatenate((kernelTime, np.arange(event['t'], event['t'] + event['dur'], dt)), axis=None)
+    speedEvents = config['speed'] + [event for event in config['pulseSeq'] if any(['FA' in event, 'B1' in event])]
+    speedEvents = sorted(speedEvents, key=lambda event: event['t'])
     
-    t = np.array([])
+    kernelTime = np.array([])
+    t = 0
+    dt = 1e3 / config['fps'] * config['speed'][0]['speed'] # Animation time resolution [msec]
+    for event in speedEvents:
+        kernelTime = np.concatenate((kernelTime, np.arange(t, event['t'], dt)), axis=None)
+        t = max(t, event['t'])
+        if 'speed' in event:
+            dt = 1e3 / config['fps'] * event['speed'] # Animation time resolution [msec]
+        if 'FA' in event or 'B1' in event:
+            RFdt = min(dt, 1e3 / config['fps'] * config['maxRFspeed']) # Time resolution during RF [msec]
+            kernelTime = np.concatenate((kernelTime, np.arange(event['t'], event['t'] + event['dur'], RFdt)), axis=None)
+            t = event['t'] + event['dur']
+    kernelTime = np.concatenate((kernelTime, np.arange(t, config['TR'], dt)), axis=None)
+
+    timeVec = np.array([])
     for rep in range(nTR): # Repeat time vector for each TR
-        t = np.concatenate((t, kernelTime + rep * config['TR']), axis=None)
-    return np.unique(roundEventTime(t))
+        timeVec = np.concatenate((timeVec, kernelTime + rep * config['TR']), axis=None)
+    return np.unique(roundEventTime(timeVec))
 
 
 def setupPulseSeq(config):
@@ -1045,6 +1051,25 @@ def checkConfig(config):
         config['fps'] = 15 # Frames per second in animation (<=15 should be supported by powepoint)
     
     config['w0'] = 2*np.pi*gyro*config['B0'] # Larmor frequency [kRad/s]
+
+    # check speed prescription
+    if isinstance(config['speed'], Number):
+        config['speed'] = [{'t': 0, 'speed': config['speed']}]
+    elif isinstance(config['speed'], list):
+        for event in config['speed']:
+            if not ('t' in event and 'speed' in event):
+                raise Exception("Each item in 'speed' list must have field 't' [msec] and 'speed'")
+            if event['t']>=config['TR']:
+                raise Exception("Specified speed change must be within TR.")
+        if not 0 in [event['t'] for event in config['speed']]:
+            raise Exception("Speed at time 0 must be specified.")
+    else:
+        raise Exception("Config 'speed' must be a number or a list")
+    config['speed'] = sorted(config['speed'], key=lambda event: event['t'])
+    if 'maxRFspeed' not in config:
+        config['maxRFspeed'] = 0.001
+    elif not isinstance(config['maxRFspeed'], Number):
+        raise Exception("Config 'maxRFspeed' must be numeric")
 
     setupPulseSeq(config)
 
