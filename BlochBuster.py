@@ -786,7 +786,7 @@ def checkPulseSeq(config):
                 raise Exception('Gradient must have a specified duration>0 (dur [ms])')
             for g in ['Gx', 'Gy', 'Gz']:
                 if g in event:
-                    if 'file' in event[g] and 'amp' in event[g]:
+                    if isinstance(event[g], dict) and 'file' in event[g] and 'amp' in event[g]:
                         grad = loadGradfromFile(event[g]['file'])
                         event[g] = list(np.array(grad) / np.max(grad) * event[g]['amp'])
                     elif not isinstance(event[g], Number) and not (isinstance(event[g], list) and len(event[g])>0):
@@ -826,6 +826,9 @@ def checkPulseSeq(config):
                             subEvent['{}text'.format(key)] = '{}: {:2.0f} mT/m'.format(key, subEvent[key])
                 config['separatedPulseSeq'].append(subEvent)
         else:
+            for key in ['Gx', 'Gy', 'Gz']:
+                if key in event:
+                    event['{}text'.format(key)] = '{}: {:2.0f} mT/m'.format(key, event[key])
             config['separatedPulseSeq'].append(event)
 
     # Sort separatedPulseSeq according to event time
