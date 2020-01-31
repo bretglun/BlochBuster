@@ -56,7 +56,7 @@ White background can be toggled by setting "color: white" under the "background"
 The animation speed is determined by the "speed" field, where 1 corresponds to real-time. Varying animation speed over the TR can be achieved by providing "speed" as a list where each element has field "t" [msec] and "speed". The maximum animation speed of RF pulses can be controlled by the "maxRFspeed" field (default is 0.001).
 
 The output is specified by a list, where the "type" can be:
-- 3D: animated 3D plot of the magnetization vectors
+- 3D: animated 3D plot of the magnetization vectors. The coordinate system may rotate relative to the resonance frequency by specifying "rotate" in [Hz]
 - kspace: animated plot of kspace position
 - psd: events plotted as a pulse sequence diagram
 - xy: animated plot of transverse magnetization over time. If "abs: false", both real and imaginary components are plotted.

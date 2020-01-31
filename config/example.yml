@@ -68,6 +68,7 @@ output:
     file: example_3D.gif
     drawAxes: False
     dpi: 100
+    rotate: 150
   - type: xy
     abs: true
     normalize: False

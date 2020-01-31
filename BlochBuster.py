@@ -151,10 +151,16 @@ def plotFrame3D(config, vectors, frame, output):
     fig.text(.5, 1, config['title'], fontsize=14, horizontalalignment='center', verticalalignment='top', color=colors['text'])
 
     # Draw time
-    time_text = fig.text(0, 0, 'time = %.1f msec' % (config['tFrames'][frame%(len(config['t'])-1)]), color=colors['text'], verticalalignment='bottom')
+    time = config['tFrames'][frame%(len(config['t'])-1)] # frame time [msec]
+    time_text = fig.text(0, 0, 'time = %.1f msec' % (time), color=colors['text'], verticalalignment='bottom')
 
     # TODO: put isochromats in this order from start
     order = [int((nIsoc-1)/2-abs(m-(nIsoc-1)/2)) for m in range(nIsoc)]
+    thres = 0.075*axLimit # threshold on vector magnitude for shrinking
+    if 'rotate' in output:
+        rotFreq = output['rotate'] * 1e-3 # coordinate system rotation relative resonance frequency [kHz]
+        rotMat = rotMatrix(2 * np.pi * rotFreq * time, 2) # rotation matrix for rotating coordinate system
+
     # Draw magnetization vectors
     for z in range(nz):
         for y in range(ny):
@@ -163,9 +169,10 @@ def plotFrame3D(config, vectors, frame, output):
                     for m in range(nIsoc):
                         col = colors['comps'][(c) % len(colors['comps'])]
                         M = vectors[x,y,z,c,m,:,frame]
+                        if 'rotate' in output:
+                            M = np.dot(M, rotMat) # rotate vector relative to coordinate system
                         Mnorm = np.linalg.norm(M)
                         alpha = 1.-2*np.abs((m+.5)/nIsoc-.5)
-                        thres = 0.075*axLimit
                         if Mnorm>thres:
                             arrowScale = 20
                         else:
