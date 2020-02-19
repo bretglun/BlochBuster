@@ -81,4 +81,5 @@ output:
     scale: 0.9
     file: example_z.gif
   - type: psd
+    gmax: 12
     file: example_psd.gif
