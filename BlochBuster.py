@@ -115,7 +115,6 @@ def plotFrame3D(config, vectors, frame, output):
     if config['collapseLocations']:
         axLimit = 1.0
     ax = fig.gca(projection='3d', xlim=(-axLimit,axLimit), ylim=(-axLimit,axLimit), zlim=(-axLimit,axLimit), fc=colors['bg'])
-    ax.set_aspect('equal')
     
     if nx*ny*nz>1 and not config['collapseLocations']:
         azim = -78 # azimuthal angle of x-y-plane
