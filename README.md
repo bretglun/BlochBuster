@@ -39,7 +39,9 @@ A spoiler event is indicated by "spoil: true", and magically spoils all transver
 B1, Gx, Gy, and Gy may be loaded from a yaml file by providing the filename as a string. 
 The file should contain the waveform as a list, or B1 at keys 'amp' and/or 'phase' as lists and G as a list at key 'grad'.
 
-The pulse sequence repeats after "TR" msec, with "nTR" repetitions. The main field "B0" is given in T.
+The pulse sequence repeats after "TR" msec, with "nTR" repetitions. "nDummies" may be used to play dummy TR:s before the plotted TR:s to achieve a steady state.
+
+The main field "B0" is given in T.
 
 The "components" field is a list of components/tissues, each represented by a magnetization vector with a distinct color in the plot. 
 Each component's "name" will be printed in the legend. 

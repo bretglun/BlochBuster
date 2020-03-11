@@ -21,7 +21,8 @@ pulseSeq:
     - t: 23
       spoil: true
 TR: 25
-nTR: 2 
+nTR: 2
+nDummies: 1
 B0: 3.0 
 components:
     - name: "tissue #1"
@@ -51,8 +52,8 @@ M0:
      [[0,0,0], [0,0,0], [.5,0,0]],
      [[0,0,0], [0,0,0], [0,0,0]]]
 locSpacing: 0.001
-nIsochromats: 20
-isochromatStep: 0.01
+nIsochromats: 5
+isochromatStep: 0.02
 speed: 
   - t: 0
     speed: 0.003

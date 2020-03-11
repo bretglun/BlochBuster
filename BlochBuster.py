@@ -476,7 +476,7 @@ def getEventFrames(config, i):
 
 
 def applyPulseSeq(config, Meq, M0, w, T1, T2, xpos=0, ypos=0, zpos=0):
-    '''Simulate magnetization vector during nTR applications of pulse sequence.
+    '''Simulate magnetization vector during nTR (+nDummies) applications of pulse sequence.
     
     Args:
         config: configuration dictionary.
@@ -496,7 +496,7 @@ def applyPulseSeq(config, Meq, M0, w, T1, T2, xpos=0, ypos=0, zpos=0):
     M = np.zeros([len(config['t']), 3])
     M[0] = M0 # Initial state
 
-    for rep in range(config['nTR']):
+    for rep in range(-config['nDummies'], config['nTR']): # dummy TRs get negative frame numbers
         TRstartFrame = rep * config['nFramesPerTR']
 
         for i, event in enumerate(config['events']):
@@ -982,7 +982,7 @@ def setupPulseSeq(config):
         config['kernelClock'] = config['kernelClock'][:-1]
     config['nFramesPerTR'] = len(config['kernelClock'])
     config['t'] = np.array([])
-    for rep in range(config['nTR']): # Repeat time vector for each TR
+    for rep in range(-config['nDummies'], config['nTR']): # Repeat time vector for each TR (dummy TR:s get negative time)
         config['t'] = np.concatenate((config['t'], roundEventTime(config['kernelClock'] + rep * config['TR'])), axis=None)
     config['t'] = np.concatenate((config['t'], roundEventTime(config['nTR'] * config['TR'])), axis=None) # Add end time to time vector
     config['kernelClock'] = np.concatenate((config['kernelClock'], config['TR']), axis=None) # Add end time to kernel clock
@@ -1038,6 +1038,8 @@ def checkConfig(config):
     config['TR'] = roundEventTime(config['TR'])
     if 'nTR' not in config:
         config['nTR'] = 1
+    if 'nDummies' not in config:
+        config['nDummies'] = 0
     if 'nIsochromats' not in config:
         config['nIsochromats'] = 1
     if 'isochromatStep' not in config:
