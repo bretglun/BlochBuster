@@ -1,38 +1,39 @@
 title: Example config
 pulseSeq:
-    - t: 2
-      FA: 45
-      dur: 0.1
-    - t: 5
-      dur: 1
-      B1: 
-        amp: [ 1,  2,  4, 8, 16, 8,   4,   2,   1]
-        phase: [90, 60, 30, 0,  0, 0, -30, -60, -90]
-    - t: 10
-      dur: 4
-      FA: 180
-      B1: 'RF/ref.yml'
-      Gz: 5
-      phase: 270
-    - t: 15
-      dur: 5
-      Gx: 10
-      Gy: 10
-    - t: 23
-      spoil: true
+  - t: 2
+    FA: 45
+    dur: 0.1
+  - t: 5
+    dur: 1
+    B1: 
+      amp: [ 1,  2,  4, 8, 16, 8,   4,   2,   1]
+      phase: [90, 60, 30, 0,  0, 0, -30, -60, -90]
+  - t: 10
+    dur: 4
+    FA: 180
+    B1: 'RF/ref.yml'
+    Gz: 5
+    phase: 270
+  - t: 15
+    dur: 5
+    Gx: 10
+    Gy: 10
+  - t: 23
+    spoil: true
 TR: 25
 nTR: 2
 nDummies: 1
 B0: 3.0 
 components:
-    - name: "tissue #1"
-      CS: 0.0
-      T1: 1000.0
-      T2: 100.0
-    - name: "tissue #2"
-      CS: 3.4
-      T1: 300.0
-      T2: 80.0
+  - name: "tissue #1"
+    CS: 0.0
+    T1: 1000.0
+    T2: 100.0
+  - name: "tissue #2"
+    CS: 3.4
+    T1: 300.0
+    T2: 80.0
+    color: [.2, .5, .2]
 locations:
   "tissue #1":
     [[[0,   0,   0  ], 
@@ -73,6 +74,7 @@ output:
   - type: xy
     abs: true
     normalize: False
+    tRange: [2, 25]
     file: example_xy_abs.gif
   - type: xy
     abs: false

@@ -226,7 +226,8 @@ def plotFrameMT(config, signal, frame, output):
         raise Exception('output "type" must be 3D, kspace, psd, xy (transversal) or z (longitudinal)')
 
     # create diagram
-    xmin, xmax = 0, config['tFrames'][-1]
+    xmin, xmax = output['tRange']
+    
     if output['type'] == 'xy':
         if 'abs' in output and not output['abs']:
             ymin, ymax = -1, 1
@@ -265,7 +266,7 @@ def plotFrameMT(config, signal, frame, output):
     yhw = hw/(ymax-ymin)*(xmax-xmin) * height/width  # compute matching arrowhead length and width
     yhl = hl/(xmax-xmin)*(ymax-ymin) * width/height
     ax.arrow(xmin, 0, (xmax-xmin)*1.05, 0, fc=colors['text'], ec=colors['text'], lw=1, head_width=hw, head_length=hl, clip_on=False, zorder=100)
-    ax.arrow(0, ymin, 0, (ymax-ymin)*1.05, fc=colors['text'], ec=colors['text'], lw=1, head_width=yhw, head_length=yhl, clip_on=False, zorder=100)
+    ax.arrow(xmin, ymin, 0, (ymax-ymin)*1.05, fc=colors['text'], ec=colors['text'], lw=1, head_width=yhw, head_length=yhl, clip_on=False, zorder=100)
     
     # Draw magnetization vectors
     nComps = signal.shape[0]
@@ -355,7 +356,7 @@ def plotFramePSD(config, frame, output):
     if 'fig' in output:
         fig, timeLine = output['fig']
     else:
-        xmin, xmax = 0, config['kernelClock'][-1]
+        xmin, xmax = output['tRange']
         ymin, ymax = 0, 5
         fig = plt.figure(figsize=(5, 5), facecolor=colors['bg'], dpi=output['dpi'])
         ax = fig.gca(xlim=(xmin, xmax), ylim=(ymin, ymax), fc=colors['bg'])
@@ -1116,6 +1117,13 @@ def checkConfig(config):
     
     # check output
     for output in config['output']:
+        if 'tRange' in output:
+            if not len(output['tRange'])==2:
+                raise Exception('Output "tRange" expected to be 2-tuple')
+        elif output['type']=='psd':
+            output['tRange'] = [0, config['TR']]
+        else:
+            output['tRange'] = [0, config['nTR'] * config['TR']]
         if 'dpi' not in output:
             output['dpi'] = 100
         if output['type']=='3D':
