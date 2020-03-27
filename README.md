@@ -68,6 +68,7 @@ The output is specified by a list, where the "type" can be:
 - z: animated plot of transverse magnetization over time
 
 The filename is specified by "file". The file ending can be .gif or .mp4.
+Freeze frames can be saved as .png by specifying "freeze" as a list of desired time points [msec].
 
 HOW TO USE
 ----------

@@ -73,6 +73,7 @@ output:
     drawAxes: False
     dpi: 100
     rotate: 150
+    freeze: [20.0]
   - type: xy
     abs: true
     normalize: False

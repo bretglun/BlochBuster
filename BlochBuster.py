@@ -1147,6 +1147,10 @@ def checkConfig(config):
             output['tRange'] = [0, config['nTR'] * config['TR']]
         if 'dpi' not in output:
             output['dpi'] = 100
+        if 'freeze' not in output:
+            output['freeze'] = []
+        elif not isinstance(output['freeze'], list):
+            output['freeze'] = [output['freeze']]
         if output['type']=='3D':
             if 'drawAxes' not in output:
                 output['drawAxes'] = config['nx']*config['ny']*config['nz'] == 1
@@ -1346,6 +1350,10 @@ def run(configFile, leapFactor=1, gifWriter='ffmpeg'):
                 os.makedirs(tmpdir, exist_ok=True)
             os.makedirs(outdir, exist_ok=True)
             outfile = os.path.join(outdir, output['file'])
+            
+            output['freezeFrames'] = []
+            for t in output['freeze']:
+                output['freezeFrames'].append(np.argmin(np.abs(config['tFrames'] - t)))
             for frame in range(0, len(config['tFrames']), leapFactor):
                 # Use only every leapFactor frame in animation
                 if output['type'] == '3D':
@@ -1357,12 +1365,20 @@ def run(configFile, leapFactor=1, gifWriter='ffmpeg'):
                 elif output['type'] in ['xy', 'z']:
                     fig = plotFrameMT(config, signal, frame, output)
                 plt.draw()
+
+                filesToSave = []
+                if frame in output['freezeFrames']:
+                    filesToSave.append('{}_{}.png'.format('.'.join(outfile.split('.')[:-1]), str(frame).zfill(4)))
+
                 if gifWriter == 'ffmpeg':
                     ffmpegWriter.addFrame(fig)
                 else: # use imagemagick: save frames temporarily 
-                    file = os.path.join(tmpdir, '{}.png'.format(str(frame).zfill(4)))
-                    print('Saving frame {}/{} as "{}"'.format(frame+1, config['nFrames'], file))
+                    filesToSave.append(os.path.join(tmpdir, '{}.png'.format(str(frame).zfill(4))))
+                
+                for file in filesToSave:
+                    print('Saving frame {}/{} as "{}"'.format(frame+1, len(config['tFrames']), file))
                     plt.savefig(file, facecolor=plt.gcf().get_facecolor())
+
                 plt.close()
             if gifWriter == 'ffmpeg':
                 ffmpegWriter.write(outfile)
