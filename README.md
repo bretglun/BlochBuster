@@ -50,6 +50,7 @@ Each component may be represented by a fan of "nIsochromats" vectors, with a dis
 
 The optional "locations" field should contain a 3D matrix, indicating the equilibrium magnetization at different spatial positions.
 One matrix can be given for each component, but their shapes must match.
+The spacing between positions can be specified by "locSpacing" [m] (defaults to 1 mm).
 
 If an initial state other than equilibrium is desired, it can be specified in the "M0" field by a matrix matching the shape of "locations" with an additional inner dimension of size 3 representing vector length, polar angle [°], and azimuthal angle [°].
 

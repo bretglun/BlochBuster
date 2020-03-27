@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # -*- coding: utf-8 -*-
-# Copyright (c) 2017-2019 Johan Berglund
+# Copyright (c) 2017-2020 Johan Berglund
 # BlochBuster is distributed under the terms of the GNU General Public License
 #
 # This program is free software: you can redistribute it and/or modify
@@ -426,13 +426,13 @@ def derivs(M, t, Meq, w, w1, T1, T2):
     '''Bloch equations in rotating frame.
 
     Args:
-        w:    Larmor frequency :math:`2\\pi\\gamma B_0` [kRad / s].
-	w1 (complex):   B1 rotation frequency :math:`2\\pi\\gamma B_1`  [kRad / s].
-        T1:   longitudinal relaxation time.
-        T2:   transverse relaxation time.
-        M:    magnetization vector.
-        Meq:  equilibrium magnetization.
-        t:    time vector (needed for scipy.integrate.odeint).
+        w:              Larmor frequency :math:`2\\pi\\gamma B_0` [kRad / s].
+	    w1 (complex):   B1 rotation frequency :math:`2\\pi\\gamma B_1`  [kRad / s].
+        T1:             longitudinal relaxation time.
+        T2:             transverse relaxation time.
+        M:              magnetization vector.
+        Meq:            equilibrium magnetization.
+        t:              time vector (needed for scipy.integrate.odeint).
 
     Returns:
         integrand :math:`\\frac{dM}{dt}`
@@ -483,7 +483,7 @@ def applyPulseSeq(config, Meq, M0, w, T1, T2, xpos=0, ypos=0, zpos=0):
         config: configuration dictionary.
         Meq:    equilibrium magnetization along z axis.
         M0:     initial state of magnetization vector, numpy array of size 3.
-        w:      Larmor frequency :math:`2\\pi\\gamma B_0` [kRad / s].
+        w:      Larmor frequency :math:`2\\pi\\gamma B_0` [kRad/s].
         T1:     longitudinal relaxation time.
         T2:     transverse relaxation time.
         xpos:   position of magnetization vector along x gradient.
