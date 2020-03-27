@@ -29,6 +29,7 @@ components:
     CS: 0.0
     T1: 1000.0
     T2: 100.0
+    Dx: 0.1
   - name: "tissue #2"
     CS: 3.4
     T1: 300.0

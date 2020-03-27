@@ -34,6 +34,7 @@ from matplotlib.patches import FancyArrowPatch
 import numpy as np
 from numbers import Number
 import scipy.integrate as integrate
+from scipy.stats import norm
 import os.path
 import shutil
 import argparse
@@ -472,7 +473,7 @@ def getEventFrames(config, i):
     return firstFrame, lastFrame
 
 
-def applyPulseSeq(config, Meq, M0, w, T1, T2, pos0, v):
+def applyPulseSeq(config, Meq, M0, w, T1, T2, pos0, v, D):
     '''Simulate magnetization vector during nTR (+nDummies) applications of pulse sequence.
     
     Args:
@@ -484,6 +485,7 @@ def applyPulseSeq(config, Meq, M0, w, T1, T2, pos0, v):
         T2:     transverse relaxation time.
         pos0:   position (x,y,z) of magnetization vector at t=0 [m].
         v:      velocity (x,y,z) of spins [mm/s]
+        D:      diffusivity (x,y,z) of spins [:math:`mm^2/s`]
         
     Returns:
         magnetization vector over time, numpy array of size [6, nFrames]. 1:3 are magnetization, 4:6 are position
@@ -493,6 +495,13 @@ def applyPulseSeq(config, Meq, M0, w, T1, T2, pos0, v):
     M[0] = M0 # Initial state
 
     pos = np.tile(pos0, [len(config['t']), 1]) # initial position
+    if np.linalg.norm(D) > 0: # diffusion contribution
+        for frame in range(1,len(config['t'])):
+            dt = config['t'][frame] - config['t'][frame-1]
+            for dim in range(3):
+                pos[frame][dim] = pos[frame-1][dim] + norm.rvs(scale=np.sqrt(D[dim]*dt*1e-9)) # standard deviation in meters
+            if config['t'][frame]==0: # reset position for t=0
+                pos[:frame+1] += np.tile(pos0 - pos[frame], [frame+1, 1])
     if np.linalg.norm(v) > 0: # velocity contribution
         pos += np.outer(config['t'], v) * 1e-6
 
@@ -545,13 +554,14 @@ def simulateComponent(config, component, Meq, M0=None, pos=None):
     if not pos:
         pos = [0, 0, 0]
     v = [component['vx'], component['vy'], component['vz']]
+    D = [component['Dx'], component['Dy'], component['Dz']]
     # Shifts in ppm for dephasing vectors:
     isochromats = [(2*i+1-config['nIsochromats'])/2*config['isochromatStep']+component['CS'] for i in range(0, config['nIsochromats'])]
     comp = np.empty((config['nIsochromats'],6,len(config['t'])))
 
     for m, isochromat in enumerate(isochromats):
         w = config['w0']*isochromat*1e-6  # Demodulated frequency [kRad / s]
-        comp[m,:,:] = applyPulseSeq(config, Meq, M0, w, component['T1'], component['T2'], pos, v)
+        comp[m,:,:] = applyPulseSeq(config, Meq, M0, w, component['T1'], component['T2'], pos, v, D)
     return comp
 
 
@@ -1059,7 +1069,10 @@ def checkConfig(config):
                                ('T2', np.inf), 
                                ('vx', 0), 
                                ('vy', 0), 
-                               ('vz', 0)]:
+                               ('vz', 0), 
+                               ('Dx', 0), 
+                               ('Dy', 0), 
+                               ('Dz', 0)]:
             if key not in comp:
                 comp[key] = default
     config['nComps'] = len(config['components'])

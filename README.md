@@ -46,6 +46,8 @@ The main field "B0" is given in T.
 The "components" field is a list of components/tissues, each represented by a magnetization vector with a distinct color in the plot. 
 Each component's "name" will be printed in the legend. 
 "CS" is chemical shift in ppm; "T1" and "T2" are relaxation times in msec. 
+A components may have a velocity specified by "vx"/"vy"/"vz" [mm/sec] and diffusion specified by "Dx"/"Dy"/"Dz" [mm^2/sec].
+
 Each component may be represented by a fan of "nIsochromats" vectors, with a distribution of precession frequencies determined by "isochromatStep" [ppm].
 
 The optional "locations" field should contain a 3D matrix, indicating the equilibrium magnetization at different spatial positions.
