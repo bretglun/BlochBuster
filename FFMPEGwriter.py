@@ -1,4 +1,4 @@
-import subprocess
+import ffmpeg
 
 class FFMPEGwriter:
     '''Writer class that can add matplotlib figures as frames and then write gif or mp4 using FFMPEG. '''
@@ -21,6 +21,12 @@ class FFMPEGwriter:
             self.width, self.height = fig.canvas.get_width_height()
         self.frames.append(fig.canvas.tostring_rgb()) # extract the image as an RGB string
 
+    def streamFrames(self, process):
+        for frame in self.frames:
+            process.stdin.write(frame)
+        process.stdin.close()
+        process.wait()
+
     def write(self, filename):
         '''Write frames to gif or mp4 using FFMPEG. 
         
@@ -29,38 +35,31 @@ class FFMPEGwriter:
 
         '''
 
+        frameStream = ffmpeg.input('pipe:', format='rawvideo', pix_fmt='rgb24', framerate=self.fps, s='{}x{}'.format(self.width, self.height))
         if '.gif' in filename:
-            paletteCmd = ('ffmpeg', 
-                '-s', '{}x{}'.format(self.width, self.height), 
-                '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-i', '-', 
-                '-filter_complex', 'palettegen=stats_mode=diff', '-y', 'palette.png')
-            paletteProcess = subprocess.Popen(paletteCmd, stdin=subprocess.PIPE)
-            for frame in self.frames:
-                paletteProcess.stdin.write(frame) # write frame to GIF palette
-            paletteProcess.communicate() # Create palette
-            animationCmd = ('ffmpeg', 
-                '-y', # overwrite output file
-                '-r', str(self.fps), # frame rate
-                '-s', '{}x{}'.format(self.width, self.height), # size of image string
-                '-pix_fmt', 'rgb24', # input format
-                '-f', 'rawvideo',  '-i', '-', # tell ffmpeg to expect raw video from the pipe
-                '-i', 'palette.png', '-filter_complex', 'paletteuse',
-                '-vframes', str(len(self.frames)), # number of frames
-                filename) # file name
+            paletteFile = 'palette.png'
+            paletteProcess = (
+                frameStream
+                .output(paletteFile, filter_complex='palettegen=stats_mode=diff')
+                .overwrite_output()
+                .run_async(pipe_stdin=True)
+            )
+            self.streamFrames(paletteProcess)
+            
+            animationProcess = (
+                frameStream
+                .output(filename, i=paletteFile, filter_complex='paletteuse')
+                .overwrite_output()
+                .run_async(pipe_stdin=True)
+            )
         elif '.mp4' in filename:
-            animationCmd = ('ffmpeg', 
-                '-y', # overwrite output file
-                '-r', str(self.fps), # frame rate
-                '-s', '{}x{}'.format(self.width, self.height), # size of image string
-                '-pix_fmt', 'rgb24', # input format
-                '-f', 'rawvideo',  '-i', '-', # tell ffmpeg to expect raw video from the pipe
-                '-vcodec', 'h264', # output encoding
-                '-pix_fmt' ,'yuv420p', # required for some media players
-                '-vframes', str(len(self.frames)), # number of frames
-                filename) # file name
+            animationProcess = (
+                frameStream
+                .output(filename, pix_fmt='yuv420p', vcodec='h264')
+                .overwrite_output()
+                .run_async(pipe_stdin=True)
+            )
         else:
             raise Exception('FFMPEGwriter expects ".gif" or ".mp4" in filename')
-        animationProcess = subprocess.Popen(animationCmd, stdin=subprocess.PIPE)                    
-        for frame in self.frames:
-            animationProcess.stdin.write(frame) # write frame to animation
-        animationProcess.communicate() # Create animation
+
+        self.streamFrames(animationProcess)

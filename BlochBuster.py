@@ -36,7 +36,6 @@ from numbers import Number
 import scipy.integrate as integrate
 from scipy.stats import norm
 import os.path
-import shutil
 import argparse
 import yaml
 import FFMPEGwriter
@@ -1257,25 +1256,14 @@ def fadeTextFlashes(config, fadeTime=1.0):
                 config[channel][i] = max(0, config[channel][i-1]-decay)
 
 
-def run(configFile, leapFactor=1, gifWriter='ffmpeg'):
+def run(configFile, leapFactor=1):
     ''' Main program. Read and setup config, simulate magnetization vectors and write animated gif.
         
     Args:
         configFile: YAML file specifying configuration.
         leapFactor: Skip frame factor for faster processing and smaller filesize.
-        gifWriter:  external program to write gif. Must be "ffmpeg" or "imagemagick"/"convert".
         
     '''
-    # Check if gifWriter exists
-    gifWriter = gifWriter.lower()
-    if gifWriter == 'ffmpeg':
-        if not shutil.which('ffmpeg'):
-            raise Exception('FFMPEG not found')
-    elif gifWriter in ['imagemagick', 'convert']:
-        if not shutil.which('convert'):
-            raise Exception('ImageMagick (convert) not found')
-    else:
-        raise Exception('Argument gifWriter must be "ffmpeg" or "imagemagick"/"convert"')
 
     # Set global constants
     global gyro
@@ -1341,17 +1329,7 @@ def run(configFile, leapFactor=1, gifWriter='ffmpeg'):
                 signal /= np.max(np.abs(signal)) # scale signal relative to maximum
                 if 'scale' in output:
                     signal *= output['scale']
-            if gifWriter == 'ffmpeg':
-                ffmpegWriter = FFMPEGwriter.FFMPEGwriter(config['fps'])
-            else:
-                tmpdir = './tmp'
-                if os.path.isdir(tmpdir):
-                    rmTmpDir = input('Temporary folder "{}" already exists. Delete(Y/N)?'.format(tmpdir))
-                    if rmTmpDir.upper() == 'Y':
-                        shutil.rmtree(tmpdir)
-                    else:
-                        raise Exception('No files written.')
-                os.makedirs(tmpdir, exist_ok=True)
+            ffmpegWriter = FFMPEGwriter.FFMPEGwriter(config['fps'])
             os.makedirs(outdir, exist_ok=True)
             outfile = os.path.join(outdir, output['file'])
             
@@ -1374,23 +1352,14 @@ def run(configFile, leapFactor=1, gifWriter='ffmpeg'):
                 if frame in output['freezeFrames']:
                     filesToSave.append('{}_{}.png'.format('.'.join(outfile.split('.')[:-1]), str(frame).zfill(4)))
 
-                if gifWriter == 'ffmpeg':
-                    ffmpegWriter.addFrame(fig)
-                else: # use imagemagick: save frames temporarily 
-                    filesToSave.append(os.path.join(tmpdir, '{}.png'.format(str(frame).zfill(4))))
+                ffmpegWriter.addFrame(fig)
                 
                 for file in filesToSave:
                     print('Saving frame {}/{} as "{}"'.format(frame+1, len(config['tFrames']), file))
                     plt.savefig(file, facecolor=plt.gcf().get_facecolor())
 
                 plt.close()
-            if gifWriter == 'ffmpeg':
-                ffmpegWriter.write(outfile)
-            else: # use imagemagick
-                print('Creating animated gif "{}"'.format(outfile))
-                compress = '-layers Optimize'
-                os.system(('convert {} -delay {} {}/*png {}'.format(compress, delay, tmpdir, outfile)))
-                shutil.rmtree(tmpdir)
+            ffmpegWriter.write(outfile)
 
 
 def parseAndRun():
