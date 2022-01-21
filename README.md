@@ -1,4 +1,4 @@
-*Copyright (c) 2017-2019 Johan Berglund*  
+*Copyright (c) 2017-2022 Johan Berglund*  
 *BlochBuster is distributed under the terms of the GNU General Public License*
 
 *This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.*
@@ -81,13 +81,11 @@ The -l flag is optional and specifies a leap factor, allowing frames to be skipp
 
 DEPENDENCIES
 ------------
-BlochBuster was written in Python 3.4.3, using libraries Matplotlib 1.4.3 and 
-Numpy 1.9.3. BlochBuster uses ffmpeg to create animated gif or mp4 files, so
-ffmpeg needs to be installed (https://www.ffmpeg.org/).
+See [./environment.yml](environment.yml).
 
 CONTACT INFORMATION
 -------------------
 Johan Berglund, Ph.D.  
-Karolinska Institutet,  
-Stockholm, Sweden  
-johan.berglund@neuroradkarolinska.se
+Uppsala University Hospital,  
+Uppsala, Sweden  
+johan.berglund@akademiska.se

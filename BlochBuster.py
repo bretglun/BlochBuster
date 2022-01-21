@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # -*- coding: utf-8 -*-
-# Copyright (c) 2017-2020 Johan Berglund
+# Copyright (c) 2017-2022 Johan Berglund
 # BlochBuster is distributed under the terms of the GNU General Public License
 #
 # This program is free software: you can redistribute it and/or modify
@@ -110,7 +110,7 @@ def plotFrame3D(config, vectors, frame, output):
     axLimit = max(nx,ny,nz)/2+.5
     if config['collapseLocations']:
         axLimit = 1.0
-    ax = fig.gca(projection='3d', xlim=(-axLimit,axLimit), ylim=(-axLimit,axLimit), zlim=(-axLimit,axLimit), fc=colors['bg'])
+    ax = plt.axes(projection='3d', xlim=(-axLimit,axLimit), ylim=(-axLimit,axLimit), zlim=(-axLimit,axLimit), fc=colors['bg'])
     
     if nx*ny*nz>1 and not config['collapseLocations']:
         azim = -78 # azimuthal angle of x-y-plane
