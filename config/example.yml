@@ -74,6 +74,8 @@ output:
     dpi: 100
     rotate: 150
     freeze: [20.0]
+    azimuth: -78
+    elevation: 30
   - type: xy
     abs: true
     normalize: False

@@ -113,8 +113,7 @@ def plotFrame3D(config, vectors, frame, output):
     ax = plt.axes(projection='3d', xlim=(-axLimit,axLimit), ylim=(-axLimit,axLimit), zlim=(-axLimit,axLimit), fc=colors['bg'])
     
     if nx*ny*nz>1 and not config['collapseLocations']:
-        azim = -78 # azimuthal angle of x-y-plane
-        ax.view_init(azim=azim) #ax.view_init(azim=azim, elev=elev)
+        ax.view_init(azim=output['azimuth'], elev=output['elevation'])
     ax.set_axis_off()
     width = 1.65 # to get tight cropping
     height = width/aspect
@@ -1065,7 +1064,7 @@ def checkConfig(config):
             config['isochromatStep']=0
     if 'components' not in config:
         config['components'] = [{}]
-    for comp in config['components']:
+    for c, comp in enumerate(config['components']):
         for (key, default) in [('name', ''), 
                                ('CS', 0), 
                                ('T1', np.inf), 
@@ -1157,6 +1156,10 @@ def checkConfig(config):
         if output['type']=='3D':
             if 'drawAxes' not in output:
                 output['drawAxes'] = config['nx']*config['ny']*config['nz'] == 1
+            if 'azimuth' not in output:
+                output['azimuth'] = -78 # azimuthal angle [deg] of x-y-plane
+            if 'elevation' not in output:
+                output['elevation'] = None # elevation angle  [deg]
     if 'background' not in config:
         config['background'] = {}
     if 'color' not in config['background']:
