@@ -150,7 +150,10 @@ def plotFrame3D(config, vectors, frame, output):
 
     # TODO: put isochromats in this order from start
     order = [int((nIsoc-1)/2-abs(m-(nIsoc-1)/2)) for m in range(nIsoc)]
-    thres = 0.075*axLimit # threshold on vector magnitude for shrinking
+    arrowheadThres = 0.075 * axLimit # threshold on vector magnitude for arrowhead shrinking
+    projection = np.array([np.cos(np.deg2rad(output['azimuth'])) * np.cos(np.deg2rad(output['elevation'])),
+                           np.sin(np.deg2rad(output['azimuth'])) * np.cos(np.deg2rad(output['elevation'])),
+                           np.sin(np.deg2rad(output['elevation']))])
     if 'rotate' in output:
         rotFreq = output['rotate'] * 1e-3 # coordinate system rotation relative resonance frequency [kHz]
         rotMat = rotMatrix(2 * np.pi * rotFreq * time, 2) # rotation matrix for rotating coordinate system
@@ -168,13 +171,13 @@ def plotFrame3D(config, vectors, frame, output):
                         if not config['collapseLocations']:
                             pos = vectors[x,y,z,c,m,3:,frame]/config['locSpacing']
                         if 'rotate' in output:
-                            M = np.dot(M, rotMat) # rotate vector relative to coordinate system
-                        Mnorm = np.linalg.norm(M)
-                        alpha = 1.-2*np.abs((m+.5)/nIsoc-.5)
-                        if Mnorm>thres:
+                            M = np.dot(M, rotMat) # rotate vector relative to coordinate system                        
+                        Mnorm = np.sqrt((np.linalg.norm(M)**2 - np.dot(M, projection)**2)) # vector norm in camera projection
+                        if Mnorm > arrowheadThres:
                             arrowScale = 20
                         else:
-                            arrowScale = 20*Mnorm/thres # Shrink arrowhead close to origo
+                            arrowScale = 20*Mnorm/arrowheadThres # Shrink arrowhead for short arrows
+                        alpha = 1.-2*np.abs((m+.5)/nIsoc-.5)
                         ax.add_artist(Arrow3D(  [pos[0], pos[0]+M[0]], 
                                                 [-pos[1], -pos[1]+M[1]],
                                                 [-pos[2], -pos[2]+M[2]], 
