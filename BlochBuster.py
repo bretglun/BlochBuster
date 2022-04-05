@@ -115,12 +115,12 @@ def plotFrame3D(config, vectors, frame, output):
     if nx*ny*nz>1 and not config['collapseLocations']:
         ax.view_init(azim=output['azimuth'], elev=output['elevation'])
     ax.set_axis_off()
-    width = 1.65 # to get tight cropping
+    width = 1.6 # to get tight cropping
     height = width/aspect
     left = (1-width)/2
     bottom = (1-height)/2
     if nx*ny*nz==1 or config['collapseLocations']: # shift to fit legend
-        left += .035
+        left -= .02
         bottom += -.075
     else:
         bottom += -.085
