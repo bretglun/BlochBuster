@@ -238,7 +238,7 @@ def plotFrameMT(config, signal, frame, output):
     elif output['type'] == 'z':
         ymin, ymax = -1, 1
     fig = plt.figure(figsize=(5, 2.7), facecolor=colors['bg'], dpi=output['dpi'])
-    ax = fig.gca(xlim=(xmin, xmax), ylim=(ymin, ymax), fc=colors['bg'])
+    ax = fig.add_subplot(xlim=(xmin, xmax), ylim=(ymin, ymax), fc=colors['bg'])
     for side in ['bottom', 'right', 'top', 'left']:
         ax.spines[side].set_visible(False)  # remove default axes
     ax.grid()
@@ -316,7 +316,7 @@ def plotFrameKspace(config, frame, output):
     xmin, xmax = -kmax, kmax
     ymin, ymax = -kmax, kmax
     fig = plt.figure(figsize=(5, 5), facecolor=colors['bg'], dpi=output['dpi'])
-    ax = fig.gca(xlim=(xmin, xmax), ylim=(ymin, ymax), fc=colors['bg'])
+    ax = fig.add_subplot(xlim=(xmin, xmax), ylim=(ymin, ymax), fc=colors['bg'])
     for side in ['bottom', 'right', 'top', 'left']:
         ax.spines[side].set_color(colors['text'])
     ax.grid()
@@ -361,7 +361,7 @@ def plotFramePSD(config, frame, output):
         xmin, xmax = output['tRange']
         ymin, ymax = 0, 5
         fig = plt.figure(figsize=(5, 5), facecolor=colors['bg'], dpi=output['dpi'])
-        ax = fig.gca(xlim=(xmin, xmax), ylim=(ymin, ymax), fc=colors['bg'])
+        ax = fig.add_subplot(xlim=(xmin, xmax), ylim=(ymin, ymax), fc=colors['bg'])
         for side in ['bottom', 'right', 'top', 'left']:
             ax.spines[side].set_visible(False)  # remove default axes
         plt.title(config['title'], color=colors['text'])
