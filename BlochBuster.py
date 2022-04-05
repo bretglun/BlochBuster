@@ -151,9 +151,9 @@ def plotFrame3D(config, vectors, frame, output):
     # TODO: put isochromats in this order from start
     order = [int((nIsoc-1)/2-abs(m-(nIsoc-1)/2)) for m in range(nIsoc)]
     arrowheadThres = 0.075 * axLimit # threshold on vector magnitude for arrowhead shrinking
-    projection = np.array([np.cos(np.deg2rad(output['azimuth'])) * np.cos(np.deg2rad(output['elevation'])),
-                           np.sin(np.deg2rad(output['azimuth'])) * np.cos(np.deg2rad(output['elevation'])),
-                           np.sin(np.deg2rad(output['elevation']))])
+    projection = np.array([np.cos(np.deg2rad(ax.azim)) * np.cos(np.deg2rad(ax.elev)),
+                           np.sin(np.deg2rad(ax.azim)) * np.cos(np.deg2rad(ax.elev)),
+                           np.sin(np.deg2rad(ax.elev))])
     if 'rotate' in output:
         rotFreq = output['rotate'] * 1e-3 # coordinate system rotation relative resonance frequency [kHz]
         rotMat = rotMatrix(2 * np.pi * rotFreq * time, 2) # rotation matrix for rotating coordinate system
