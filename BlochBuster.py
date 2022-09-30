@@ -591,6 +591,18 @@ def simulateComponent(config, component, Meq, M0=None, pos=None):
 
 
 def getComposants(config, vectors):
+    '''Adds transverse and longitudinal composants for each component with composants=True.
+    
+    Args:
+        config: configuration dictionary.
+        vectors: magnetization vectors of shape [nx, ny, nz, nComps, nIsochromats, 6, len(config['t'])]
+
+    Returns:
+        config: configuration dictionary with added components representing composants.
+        vectors: magnetization vectors with added components representing composants.
+
+    '''
+    
     for c in range(len(config['components'])):
         if config['components'][c]['composants']:
             Mz = np.expand_dims(vectors[:,:,:,c,:,:,:], axis=3).copy() * (1-1e-3) # Truncate to assert composants are rendered behind
