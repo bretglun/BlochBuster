@@ -1,0 +1,44 @@
+title: Relaxation, rotating frame
+pulseSeq:
+  - t: 0
+    dur: 0.001
+    FA: 90
+TR: 3000
+nTR: 1
+B0: 1.5
+B1: 100
+components:
+  - name: $\bf{M}$
+    Meq: 1.0
+    CS: 0.0
+    T1: 300.0
+    T2: 50.0
+    color: [.3, .5, .2]
+    composants: True
+  
+nIsochromats: 1
+isochromatStep: 0.01
+speed:
+  - t: 0
+    speed: 0.000001
+  - t: 0.001
+    speed: 0.01
+  - t: 50
+    speed: 0.015
+  - t: 100
+    speed: 0.02
+  - t: 150
+    speed: 0.03
+  - t: 200
+    speed: 0.05
+  - t: 300
+    speed: 0.08
+  - t: 400
+    speed: 0.12
+  - t: 500
+    speed: 0.2
+  - t: 600
+    speed: 0.3
+output:
+  - type: 3D
+    file: relaxation_rotframe_composants_3D.gif

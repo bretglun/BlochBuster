@@ -590,6 +590,23 @@ def simulateComponent(config, component, Meq, M0=None, pos=None):
     return comp
 
 
+def getComposants(config, vectors):
+    for c in range(len(config['components'])):
+        if config['components'][c]['composants']:
+            Mz = np.expand_dims(vectors[:,:,:,c,:,:,:], axis=3).copy() * (1-1e-3) # Truncate to assert composants are rendered behind
+            Mxy = Mz.copy()
+            Mz[:,:,:,0,:,:2,:] = 0. # Null transverse magnetization to get longitudinal composant
+            Mxy[:,:,:,0,:,2,:] = 0. # Null longitudinal magnetization to get transverse composant
+            vectors = np.concatenate((vectors, Mz, Mxy), 3) # Add composants as new components
+            
+            config['components'].append({'name': '$M_z$'})
+            colors['comps'].insert(len(config['components'])-1, [.1, .4, .5])
+            config['components'].append({'name': '$M_{xy}$'})
+            colors['comps'].insert(len(config['components'])-1, [.5, .3, .2])
+
+    return config, vectors
+
+
 def getText(config):
     ''' Get opacity and display text pulseSeq event text flashes in 3D plot and store in config.
     
@@ -1097,7 +1114,8 @@ def checkConfig(config):
                                ('vz', 0), 
                                ('Dx', 0), 
                                ('Dy', 0), 
-                               ('Dz', 0)]:
+                               ('Dz', 0),
+                               ('composants', False)]:
             if key not in comp:
                 comp[key] = default
     config['nComps'] = len(config['components'])
@@ -1342,7 +1360,6 @@ def run(configFile, leapFactor=1):
     getText(config) # prepare text flashes for 3D plot
     vectors = resampleOnPrescribedTimeFrames(vectors, config)
     fadeTextFlashes(config)
-    delay = int(100/config['fps']*leapFactor)  # Delay between frames in ticks of 1/100 sec
 
     outdir = './out'
     for output in config['output']:
@@ -1355,6 +1372,9 @@ def run(configFile, leapFactor=1):
                 signal /= np.max(np.abs(signal)) # scale signal relative to maximum
                 if 'scale' in output:
                     signal *= output['scale']
+            if output['type']=='3D':
+                if any(comp['composants'] for comp in config['components']):
+                    config, vectors = getComposants(config, vectors)
             ffmpegWriter = FFMPEGwriter.FFMPEGwriter(config['fps'])
             os.makedirs(outdir, exist_ok=True)
             outfile = os.path.join(outdir, output['file'])
