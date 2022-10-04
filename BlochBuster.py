@@ -1380,7 +1380,8 @@ def run(configFile, leapFactor=1):
                 signal = np.sum(vectors[:,:,:,:,:,:3,:], (0,1,2,4)) # sum over space and isochromats
                 if 'normalize' in output and output['normalize']:
                     for c, comp in enumerate([n['name'] for n in config['components']]):
-                        signal[c,:] /= np.sum(config['locations'][comp])
+                        if comp in config['locations']:
+                            signal[c,:] /= np.sum(config['locations'][comp])
                 signal /= np.max(np.abs(signal)) # scale signal relative to maximum
                 if 'scale' in output:
                     signal *= output['scale']
