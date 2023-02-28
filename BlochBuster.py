@@ -30,7 +30,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle, Rectangle
-from matplotlib.patches import FancyArrowPatch
+from matplotlib.patches import FancyArrowPatch, ArrowStyle
 import numpy as np
 from numbers import Number
 import scipy.integrate as integrate
@@ -184,6 +184,23 @@ def plotFrame3D(config, vectors, frame, output):
                                                 mutation_scale=arrowScale,
                                                 arrowstyle='-|>', shrinkA=0, shrinkB=0, lw=2,
                                                 color=col, alpha=alpha, 
+                                                zorder=order[m]+nIsoc*int(100*(1-Mnorm))))
+                        if config['components'][c]['drawXZProj'] is True:
+                            ax.add_artist(Arrow3D([pos[0], pos[0]+M[0]], 
+                                                [-pos[1], -pos[1]     ],
+                                                [-pos[2], -pos[2]     ], 
+                                                mutation_scale=arrowScale,
+                                                arrowstyle=ArrowStyle.BarAB(widthA=0, widthB=1.0/7),
+                                                shrinkA=0, shrinkB=0, lw=2,
+                                                color=[1-c for c in col], alpha=alpha, 
+                                                zorder=order[m]+nIsoc*int(100*(1-Mnorm))))
+                            ax.add_artist(Arrow3D([pos[0], pos[0]     ], 
+                                                [-pos[1], -pos[1]     ],
+                                                [-pos[2], -pos[2]+M[2]], 
+                                                mutation_scale=arrowScale,
+                                                arrowstyle=ArrowStyle.BarAB(widthA=0, widthB=1.0/7),
+                                                shrinkA=0, shrinkB=0, lw=2,
+                                                color=[1-c for c in col], alpha=alpha, 
                                                 zorder=order[m]+nIsoc*int(100*(1-Mnorm))))
 
     # Draw "spoiler" and "FA-pulse" text
@@ -1077,7 +1094,8 @@ def checkConfig(config):
                                ('vz', 0), 
                                ('Dx', 0), 
                                ('Dy', 0), 
-                               ('Dz', 0)]:
+                               ('Dz', 0),
+                               ('drawXZProj', False)]:
             if key not in comp:
                 comp[key] = default
     config['nComps'] = len(config['components'])

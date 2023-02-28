@@ -1,0 +1,17 @@
+title: "XZ Projection"
+pulseSeq:
+    - t: 0
+      FA: 90
+      B1: 'RF/exc_min_phase.yml'
+      dur: 3
+TR: 1500
+B0: 1.5
+components:
+    - T1: 790.0
+      T2: 92.0
+      drawXZProj: True
+speed: 0.1
+maxRFspeed: 0.001
+output: 
+  - type: 3D
+    file: xzproj.gif
