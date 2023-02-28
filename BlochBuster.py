@@ -1305,7 +1305,7 @@ def run(configFile, leapFactor=1):
     ### Setup config correctly ###
     checkConfig(config)
 
-    if config['background']['color'] == 'black':
+    if config['background']['color'] == 'black' and colors['bg'][0] == 1:
         for i in ['bg', 'axis', 'text', 'circle']:
             colors[i][:3] = list(map(lambda x: 1-x, colors[i][:3]))
 
