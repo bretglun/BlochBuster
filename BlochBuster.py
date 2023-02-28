@@ -79,6 +79,22 @@ class Arrow3D(FancyArrowPatch):
         return np.min(zs)
 
 
+def figureSize(dpi, width, height):
+    '''Calculates a frame size with even number of pixels in height and widh
+    Args:
+        dpi: pixels per inch
+        width: width in inches
+        height: height in inches
+
+    Returns:
+        pixelsWidth, pixelsHeight
+    '''
+    pxw = width * dpi
+    pxh = height * dpi
+    pxh += pxh % 2
+    pxw += pxh % 2
+    return (pxw, pxh)
+    
 def plotFrame3D(config, vectors, frame, output):
     '''Creates a plot of magnetization vectors in a 3D view.
     
@@ -103,10 +119,10 @@ def plotFrame3D(config, vectors, frame, output):
         aspect = .75
     else:
         aspect = 1
+        
     figSize = 5 # figure size in inches
-    canvasWidth = figSize
-    canvasHeight = figSize*aspect
-    fig = plt.figure(figsize=(canvasWidth, canvasHeight), dpi=output['dpi'])
+    pxw, pxh = figureSize(dpi=output['dpi'], width=figSize, height=figSize * aspect)
+    fig = plt.figure(figsize=(pxw/output['dpi'], pxh/output['dpi']), dpi=output['dpi'])
     axLimit = max(nx,ny,nz)/2+.5
     if config['collapseLocations']:
         axLimit = 1.0
@@ -237,7 +253,9 @@ def plotFrameMT(config, signal, frame, output):
             ymin, ymax = 0, 1
     elif output['type'] == 'z':
         ymin, ymax = -1, 1
-    fig = plt.figure(figsize=(5, 2.7), facecolor=colors['bg'], dpi=output['dpi'])
+
+    pxw, pxh = figureSize(dpi=output['dpi'], width=5, height=2.7)
+    fig = plt.figure(figsize=(pxw/output['dpi'], pxh/output['dpi']), facecolor=colors['bg'], dpi=output['dpi'])
     ax = fig.add_subplot(xlim=(xmin, xmax), ylim=(ymin, ymax), fc=colors['bg'])
     for side in ['bottom', 'right', 'top', 'left']:
         ax.spines[side].set_visible(False)  # remove default axes
@@ -315,7 +333,8 @@ def plotFrameKspace(config, frame, output):
     kmax = 1/(2*config['locSpacing'])
     xmin, xmax = -kmax, kmax
     ymin, ymax = -kmax, kmax
-    fig = plt.figure(figsize=(5, 5), facecolor=colors['bg'], dpi=output['dpi'])
+    pxw, pxh = figureSize(dpi=output['dpi'], width=5, height=5)
+    fig = plt.figure(figsize=(pxw/output['dpi'], pxh/output['dpi']), facecolor=colors['bg'], dpi=output['dpi'])
     ax = fig.add_subplot(xlim=(xmin, xmax), ylim=(ymin, ymax), fc=colors['bg'])
     for side in ['bottom', 'right', 'top', 'left']:
         ax.spines[side].set_color(colors['text'])
@@ -360,7 +379,8 @@ def plotFramePSD(config, frame, output):
     else:
         xmin, xmax = output['tRange']
         ymin, ymax = 0, 5
-        fig = plt.figure(figsize=(5, 5), facecolor=colors['bg'], dpi=output['dpi'])
+        pxw, pxh = figureSize(dpi=output['dpi'], width=5, height=5)
+        fig = plt.figure(figsize=(pxw/output['dpi'], pxh/output['dpi']), facecolor=colors['bg'], dpi=output['dpi'])
         ax = fig.add_subplot(xlim=(xmin, xmax), ylim=(ymin, ymax), fc=colors['bg'])
         for side in ['bottom', 'right', 'top', 'left']:
             ax.spines[side].set_visible(False)  # remove default axes
