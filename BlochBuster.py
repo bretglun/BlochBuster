@@ -659,10 +659,11 @@ def getComposants(config, vectors):
             Mxy[:,:,:,0,:,2,:] = 0. # Null longitudinal magnetization to get transverse composant
             vectors = np.concatenate((vectors, Mz, Mxy), 3) # Add composants as new components
             
-            config['components'].append({'name': '$M_z$'})
-            colors['comps'].insert(len(config['components'])-1, [.1, .4, .5])
-            config['components'].append({'name': '$M_{xy}$'})
-            colors['comps'].insert(len(config['components'])-1, [.5, .3, .2])
+            for subscript, color in [('{z}', [.1, .4, .5]), ('{xy}', [.5, .3, .2])]:
+                config['components'].append({'name': '$M_{}$'.format(subscript), 'composants': False})
+                colors['comps'].insert(len(config['components'])-1, color)
+            
+            config['components'][c]['composants'] = False # No need to create more composants
 
     return config, vectors
 
