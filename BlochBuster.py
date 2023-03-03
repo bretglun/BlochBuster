@@ -59,7 +59,8 @@ colors = {  'bg':       [1,1,1],
                         'Gy': [0,.5,0],
                         'Gz': [0,.5,0]
                         },
-            'kSpacePos': [1, .5, 0]
+            'kSpacePos': [1, .5, 0],
+            'B1vector':   [1, 1, 0]
             }
 
 class Arrow3D(FancyArrowPatch):
@@ -95,14 +96,15 @@ def figureSize(dpi, width, height):
     pxw += pxh % 2
     return (pxw, pxh)
     
-def plotFrame3D(config, vectors, frame, output):
+def plotFrame3D(config, vectors, B1vector, frame, output):
     '''Creates a plot of magnetization vectors in a 3D view.
     
     Args:
         config: configuration dictionary.
-	vectors:    numpy array of size [nx, ny, nz, nComps, nIsochromats, 3, nFrames].
-        frame:  which frame to plot.
-        output: specification of desired output (dictionary from config).
+        vectors:    numpy array of size [nx, ny, nz, nComps, nIsochromats, 6, nFrames].
+        B1vector:   complex numpy array of size [nFrames].
+        frame:      which frame to plot.
+        output:     specification of desired output (dictionary from config).
 
     Returns:
         plot figure.
@@ -174,9 +176,8 @@ def plotFrame3D(config, vectors, frame, output):
         rotFreq = output['rotate'] * 1e-3 # coordinate system rotation relative resonance frequency [kHz]
         rotMat = rotMatrix(2 * np.pi * rotFreq * time, 2) # rotation matrix for rotating coordinate system
 
-    pos = [0,0,0]
-
     # Draw magnetization vectors
+    pos = [0,0,0]
     for z in range(nz):
         for y in range(ny):
             for x in range(nx):
@@ -189,10 +190,7 @@ def plotFrame3D(config, vectors, frame, output):
                         if 'rotate' in output:
                             M = np.dot(M, rotMat) # rotate vector relative to coordinate system                        
                         Mnorm = np.sqrt((np.linalg.norm(M)**2 - np.dot(M, projection)**2)) # vector norm in camera projection
-                        if Mnorm > arrowheadThres:
-                            arrowScale = 20
-                        else:
-                            arrowScale = 20*Mnorm/arrowheadThres # Shrink arrowhead for short arrows
+                        arrowScale = 20 if Mnorm > arrowheadThres else 20 * Mnorm/arrowheadThres # Shrink arrowhead for short arrows
                         alpha = 1.-2*np.abs((m+.5)/nIsoc-.5)
                         ax.add_artist(Arrow3D(  [pos[0], pos[0]+M[0]], 
                                                 [-pos[1], -pos[1]+M[1]],
@@ -201,6 +199,26 @@ def plotFrame3D(config, vectors, frame, output):
                                                 arrowstyle='-|>', shrinkA=0, shrinkB=0, lw=2,
                                                 color=col, alpha=alpha, 
                                                 zorder=order[m]+nIsoc*int(100*(1-Mnorm))))
+    
+    # Draw B1 vector
+    if config['plotB1']:
+        M = np.array([np.imag(B1vector[frame]), -np.real(B1vector[frame]), 0])
+        if 'rotate' in output: 
+            M = np.dot(M, rotMat) # rotate vector relative to coordinate system                        
+        Mnorm = np.sqrt((np.linalg.norm(M)**2 - np.dot(M, projection)**2)) # vector norm in camera projection
+        arrowScale = 40 if Mnorm > (arrowheadThres*4) else 40 * Mnorm/(arrowheadThres*4) # Shrink arrowhead for short arrows
+        for z in range(nz):
+            for y in range(ny):
+                for x in range(nx):
+                    pos = [ (x+.5-config['nx']/2),
+                            (y+.5-config['ny']/2),
+                            (z+.5-config['nz']/2) ]
+                    ax.add_artist(Arrow3D(  [pos[0], pos[0] + M[0]], 
+                                            [-pos[1], -pos[1] + M[1]],
+                                            [-pos[2], -pos[2]] + M[2], 
+                                            mutation_scale = arrowScale,
+                                            arrowstyle='->', shrinkA=0, shrinkB=0, lw=4,
+                                            color=colors['B1vector']))
 
     # Draw "spoiler" and "FA-pulse" text
     fig.text(1, .94, config['RFtext'][frame], fontsize=14, alpha=config['RFalpha'][frame],
@@ -232,7 +250,7 @@ def plotFrameMT(config, signal, frame, output):
     
     Args:
         config: configuration dictionary.
-	signal: numpy array of size [nComps, 3, nFrames].
+        signal: numpy array of size [nComps, 6, nFrames].
         frame:  which frame to plot up to.
         output: specification of desired output (dictionary from config).
 
@@ -558,6 +576,36 @@ def applyPulseSeq(config, Meq, M0, w, T1, T2, pos0, v, D):
             M[firstFrame:lastFrame+1] = integrate.odeint(derivs, M0, t, args=(Meq, wg, w1, T1, T2)) # Solve Bloch equation
 
     return np.concatenate((M, pos),1).transpose()
+
+
+def getB1vector(config):
+    ''' Get transverse B1 vector over time, based on pulse sequence in config.
+
+    Args:
+        config: configuration dictionary.
+        
+    Returns:
+        B1vector over time, complex numpy array of size [len(config['t'])].
+
+    '''
+    B1vector = np.empty((len(config['t'])), dtype=complex)
+    
+    for rep in range(-config['nDummies'], config['nTR']): # dummy TRs get negative frame numbers
+        TRstartFrame = rep * config['nFramesPerTR']
+
+        for i, event in enumerate(config['events']):
+            firstFrame, lastFrame = getEventFrames(config, i)
+            firstFrame += TRstartFrame
+            lastFrame += TRstartFrame
+
+            w1 = event['w1'] * np.exp(1j * np.radians(event['phase']))
+
+            t = config['t'][firstFrame:lastFrame+1]
+            if len(t)==0:
+                raise Exception("Corrupt config['events']")
+            B1vector[firstFrame:lastFrame+1] = w1
+    B1vector /= max(abs(B1vector)) # normalize
+    return B1vector
 
 
 def simulateComponent(config, component, Meq, M0=None, pos=None):
@@ -1114,6 +1162,8 @@ def checkConfig(config):
             raise Exception('Please specify "isochromatStep" [ppm] in config')
         else:
             config['isochromatStep']=0
+    if 'plotB1' not in config:
+        config['plotB1'] = False
     if 'components' not in config:
         config['components'] = [{}]
     for c, comp in enumerate(config['components']):
@@ -1254,14 +1304,15 @@ def spherical2cartesian(spherical):
     return list(M)
 
 
-def resampleOnPrescribedTimeFrames(vectors, config):
+def resampleOnPrescribedTimeFrames(vectors, B1vector, config):
     ''' Resample (interpolate) given vectors corresponding to time vector config['t'] on time vector config['tFrames]. Also resample text and alpha channels in config similiarly.
 
     Args:
-        vectors: magnetization vectors of shape [nx, ny, nz, nComps, nIsochromats, 3, len(config['t'])]
+        vectors:    magnetization vectors of shape [nx, ny, nz, nComps, nIsochromats, 6, len(config['t'])]
+        B1vector:   complex numpy array of size [nFrames].
 
     Returns:
-        resampled magnetization vectors of shape [nx, ny, nz, nComps, nIsochromats, 3, len(config['tFrames'])]
+        resampled magnetization vectors of shape [nx, ny, nz, nComps, nIsochromats, 6, len(config['tFrames'])]
 
     '''
 
@@ -1276,6 +1327,7 @@ def resampleOnPrescribedTimeFrames(vectors, config):
                     for i in range(newShape[4]):
                         for dim in range(newShape[5]):
                             resampledVectors[x,y,z,c,i,dim,:] = np.interp(config['tFrames'], config['t'], vectors[x,y,z,c,i,dim,:])
+    B1vector = np.interp(config['tFrames'], config['t'], B1vector)
 
     # resample text alpha channels:
     for channel in ['RFalpha', 'Galpha', 'spoilAlpha']:
@@ -1296,7 +1348,7 @@ def resampleOnPrescribedTimeFrames(vectors, config):
             textVector[i] = config[text][k]
         config[text] = textVector
 
-    return resampledVectors
+    return resampledVectors, B1vector
 
 
 def fadeTextFlashes(config, fadeTime=1.0):
@@ -1369,10 +1421,12 @@ def run(configFile, leapFactor=1):
                            (y+.5-config['ny']/2)*config['locSpacing'],
                            (z+.5-config['nz']/2)*config['locSpacing']]
                     vectors[x,y,z,c,:,:,:] = simulateComponent(config, component, Meq, M0, pos)
+    
+    B1vector = getB1vector(config)
 
     ### Animate ###
     getText(config) # prepare text flashes for 3D plot
-    vectors = resampleOnPrescribedTimeFrames(vectors, config)
+    vectors, B1vector = resampleOnPrescribedTimeFrames(vectors, B1vector, config)
     fadeTextFlashes(config)
 
     outdir = './out'
@@ -1400,7 +1454,7 @@ def run(configFile, leapFactor=1):
             for frame in range(0, len(config['tFrames']), leapFactor):
                 # Use only every leapFactor frame in animation
                 if output['type'] == '3D':
-                    fig = plotFrame3D(config, vectors, frame, output)
+                    fig = plotFrame3D(config, vectors, B1vector, frame, output)
                 elif output['type'] == 'kspace':
                     fig = plotFrameKspace(config, frame, output)
                 elif output['type'] == 'psd':

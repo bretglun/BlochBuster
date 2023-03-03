@@ -58,6 +58,7 @@ M0:
 locSpacing: 0.001
 nIsochromats: 5
 isochromatStep: 0.02
+plotB1: True
 speed: 
   - t: 0
     speed: 0.003
