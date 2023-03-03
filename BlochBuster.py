@@ -153,9 +153,9 @@ def plotFrame3D(config, vectors, B1vector, frame, output):
 
         # Draw x, y, and z axes
         ax.plot([-1, 1], [0, 0], [0, 0], c=colors['axis'], zorder=-1)  # x-axis
-        ax.text(1.08, 0, 0, r'$x^\prime$', horizontalalignment='center', color=colors['text'])
+        ax.text(1.08, 0, 0, r'$x{}$'.format('' if 'rotate' in output else '^\prime'), horizontalalignment='center', color=colors['text'])
         ax.plot([0, 0], [-1, 1], [0, 0], c=colors['axis'], zorder=-1)  # y-axis
-        ax.text(0, 1.12, 0, r'$y^\prime$', horizontalalignment='center', color=colors['text'])
+        ax.text(0, 1.12, 0, r'$y{}$'.format('' if 'rotate' in output else '^\prime'), horizontalalignment='center', color=colors['text'])
         ax.plot([0, 0], [0, 0], [-1, 1], c=colors['axis'], zorder=-1)  # z-axis
         ax.text(0, 0, 1.05, r'$z$', horizontalalignment='center', color=colors['text'])
 
