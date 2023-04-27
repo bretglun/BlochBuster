@@ -229,18 +229,19 @@ def plotFrame3D(config, vectors, B1vector, frame, output):
             color=colors['spoilText'], horizontalalignment='right', verticalalignment='top')
 
     # Draw legend:
-    for c in range(nComps):
-        col = colors['comps'][(c) % len(colors['comps'])]
-        ax.plot([0, 0], [0, 0], [0, 0], '-', lw=2, color=col, alpha=1.,
-                    label=config['components'][c]['name'])
-    handles, labels = ax.get_legend_handles_labels()
-    leg = fig.legend([plt.Line2D((0, 1), (0, 0), lw=2, color=colors['comps'][(c) %
-                                len(colors['comps'])]) for c, handle in enumerate(
-                                handles)], labels, loc=2, bbox_to_anchor=[
-                                -.025, .94])
-    leg.draw_frame(False)
-    for text in leg.get_texts():
-        text.set_color(colors['text'])
+    if 'legend' in output and output['legend']:
+        for c in range(nComps):
+            col = colors['comps'][(c) % len(colors['comps'])]
+            ax.plot([0, 0], [0, 0], [0, 0], '-', lw=2, color=col, alpha=1.,
+                        label=config['components'][c]['name'])
+        handles, labels = ax.get_legend_handles_labels()
+        leg = fig.legend([plt.Line2D((0, 1), (0, 0), lw=2, color=colors['comps'][(c) %
+                                    len(colors['comps'])]) for c, handle in enumerate(
+                                    handles)], labels, loc=2, bbox_to_anchor=[
+                                    -.025, .94])
+        leg.draw_frame(False)
+        for text in leg.get_texts():
+            text.set_color(colors['text'])
     
     return fig
 
@@ -1266,6 +1267,8 @@ def checkConfig(config):
                 output['azimuth'] = -78 # azimuthal angle [deg] of x-y-plane
             if 'elevation' not in output:
                 output['elevation'] = None # elevation angle  [deg]
+            if 'legend' not in output:
+                output['legend'] = True # plot figure legend
     if 'background' not in config:
         config['background'] = {}
     if 'color' not in config['background']:

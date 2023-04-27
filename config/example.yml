@@ -78,6 +78,7 @@ output:
     freeze: [20.0]
     azimuth: -78
     elevation: 30
+    legend: False
   - type: xy
     abs: true
     normalize: False
