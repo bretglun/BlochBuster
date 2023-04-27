@@ -88,6 +88,7 @@ output:
     abs: false
     file: example_xy_RI.mp4
     dpi: 72
+    sum: True
   - type: z
     scale: 0.9
     file: example_z.gif

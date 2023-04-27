@@ -310,20 +310,21 @@ def plotFrameMT(config, signal, frame, output):
     # Draw magnetization vectors
     nComps = signal.shape[0]
     if output['type'] == 'xy':
-        for c in range(nComps):
-            col = colors['comps'][c % len(colors['comps'])]
-            if 'abs' in output and not output['abs']: # real and imag part of transversal magnetization
-                ax.plot(config['tFrames'][:frame+1], signal[c,0,:frame+1], '-', lw=2, color=col)
-                col = colors['comps'][c+nComps+1 % len(colors['comps'])]
-                ax.plot(config['tFrames'][:frame+1], signal[c,1,:frame+1], '-', lw=2, color=col)
-            else: # absolute value of transversal magnetization
-                ax.plot(config['tFrames'][:frame+1], np.linalg.norm(signal[c,:2,:frame+1], axis=0), '-', lw=2, color=col)
-        # plot sum component if both water and fat (special case)
-        if all(key in [comp['name'] for comp in config['components']] for key in ['water', 'fat']):
+        if not output['sum']:
+            for c in range(nComps):
+                col = colors['comps'][c % len(colors['comps'])]
+                if 'abs' in output and not output['abs']: # real and imag part of transversal magnetization
+                    ax.plot(config['tFrames'][:frame+1], signal[c,0,:frame+1], '-', lw=2, color=col)
+                    col = colors['comps'][c+nComps+1 % len(colors['comps'])]
+                    ax.plot(config['tFrames'][:frame+1], signal[c,1,:frame+1], '-', lw=2, color=col)
+                else: # absolute value of transversal magnetization
+                    ax.plot(config['tFrames'][:frame+1], np.linalg.norm(signal[c,:2,:frame+1], axis=0), '-', lw=2, color=col)
+        if output['sum'] or all(key in [comp['name'] for comp in config['components']] for key in ['water', 'fat']):
+            # plot sum component also if both water and fat (special case)
             col = colors['comps'][nComps % len(colors['comps'])]
             if 'abs' in output and not output['abs']: # real and imag part of transversal magnetization
                 ax.plot(config['tFrames'][:frame+1], np.mean(signal[:,0,:frame+1],0), '-', lw=2, color=col)
-                col = colors['comps'][2*nComps+1 % len(colors['comps'])]
+                col = colors['comps'][(2*nComps+1) % len(colors['comps'])]
                 ax.plot(config['tFrames'][:frame+1], np.mean(signal[:,1,:frame+1],0), '-', lw=2, color=col)
             else: # absolute value of transversal magnetization
                 ax.plot(config['tFrames'][:frame+1], np.linalg.norm(np.mean(signal[:,:2,:frame+1],0), axis=0), '-', lw=2, color=col)
@@ -1269,6 +1270,9 @@ def checkConfig(config):
                 output['elevation'] = None # elevation angle  [deg]
             if 'legend' not in output:
                 output['legend'] = True # plot figure legend
+        elif output['type']=='xy':
+            if 'sum' not in output:
+                output['sum'] = False # sum transverse components
     if 'background' not in config:
         config['background'] = {}
     if 'color' not in config['background']:
