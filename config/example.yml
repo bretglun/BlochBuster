@@ -35,6 +35,7 @@ components:
     CS: 3.4
     T1: 300.0
     T2: 80.0
+    T2*: 20.0
     vy: 10.0
     color: [.8, .1, .2]
 locations:

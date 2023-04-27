@@ -611,7 +611,7 @@ def getB1vector(config):
 
 
 def simulateComponent(config, component, Meq, M0=None, pos=None):
-    ''' Simulate nIsochromats magnetization vectors per component with uniform distribution of Larmor frequencies.
+    ''' Simulate nIsochromats magnetization vectors per component. Their frequency distribution is Lorenzian if component has a T2* value, otherwise uniform.
 
     Args:
         config: configuration dictionary.
@@ -637,6 +637,9 @@ def simulateComponent(config, component, Meq, M0=None, pos=None):
     for m, isochromat in enumerate(isochromats):
         w = config['w0']*isochromat*1e-6  # Demodulated frequency [kRad / s]
         comp[m,:,:] = applyPulseSeq(config, Meq, M0, w, component['T1'], component['T2'], pos, v, D)
+        if 'T2*' in component:
+            R2prim = 1/component['T2*'] - 1/component['T2']
+            comp[m,:,:] /= 1 + (w/R2prim)**2 # Lorenzian lineshape
     return comp
 
 
