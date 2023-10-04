@@ -80,6 +80,7 @@ output:
     azimuth: -78
     elevation: 30
     legend: False
+    spheres: False
   - type: xy
     abs: true
     normalize: False

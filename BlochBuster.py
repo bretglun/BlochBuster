@@ -95,7 +95,38 @@ def figureSize(dpi, width, height):
     pxh += pxh % 2
     pxw += pxh % 2
     return (pxw, pxh)
-    
+
+
+def plotBlackWhiteSphere(ax, M, pos, R=.4, rotationAxis='y', nPoints=36):
+    '''Plot phase of transverse magnetization as a sphere with a black and a white half
+       Following Plewes and Kucharczyk, JMRI 35(5): 1038-54, 2012.
+    Args:
+        ax: matplotlib axes for plotting
+        M: magnetization vector [Mx, My, Mz]
+        pos: position of magnetization vector [x, y, z]
+        R: sphere radius in units of locSpacing per unit magnitude
+        rotationAxis: axis around which the sphere rotates ('x', 'y', or 'z')
+        nPoints: number of points along sphere circumference
+    '''
+    phase = np.arctan2(M[1], M[0])
+    m = np.linalg.norm(M)
+    if m<.05: return
+    phi, theta = np.mgrid[0.0:2.0*np.pi:nPoints*1j, 0.0:np.pi:nPoints/2*1j]
+    dx = m * R * np.sin(theta) * np.cos(phi)
+    dy = m * R * np.sin(theta) * np.sin(phi)
+    dz = m * R * np.cos(theta)
+
+    colors = np.full_like(dx, 'white', dtype=object) # define colors for the two sides
+    colors[dy < 0] = 'dimgrey' # divide across y-axis
+
+    dx, dy = dx * np.cos(phase) - dy * np.sin(phase), dx * np.sin(phase) + dy * np.cos(phase) # rotate
+    if rotationAxis=='x':
+        dx, dz = dz, dx
+    elif rotationAxis=='y':
+        dy, dz = dz, dy
+    ax.plot_surface(dx+pos[0], dy-pos[1], dz-pos[2], facecolors=colors, shade=True)
+
+
 def plotFrame3D(config, vectors, B1vector, frame, output):
     '''Creates a plot of magnetization vectors in a 3D view.
     
@@ -189,16 +220,20 @@ def plotFrame3D(config, vectors, B1vector, frame, output):
                             pos = vectors[x,y,z,c,m,3:,frame]/config['locSpacing']
                         if 'rotate' in output:
                             M = np.dot(M, rotMat) # rotate vector relative to coordinate system                        
-                        Mnorm = np.sqrt((np.linalg.norm(M)**2 - np.dot(M, projection)**2)) # vector norm in camera projection
-                        arrowScale = 20 if Mnorm > arrowheadThres else 20 * Mnorm/arrowheadThres # Shrink arrowhead for short arrows
-                        alpha = 1.-2*np.abs((m+.5)/nIsoc-.5)
-                        ax.add_artist(Arrow3D(  [pos[0], pos[0]+M[0]], 
-                                                [-pos[1], -pos[1]+M[1]],
-                                                [-pos[2], -pos[2]+M[2]], 
-                                                mutation_scale=arrowScale,
-                                                arrowstyle='-|>', shrinkA=0, shrinkB=0, lw=2,
-                                                color=col, alpha=alpha, 
-                                                zorder=order[m]+nIsoc*int(100*(1-Mnorm))))
+                        if 'spheres' in output and output['spheres']:
+                            
+                            plotBlackWhiteSphere(ax, M[:3], pos[:3])
+                        else:
+                            Mnorm = np.sqrt((np.linalg.norm(M)**2 - np.dot(M, projection)**2)) # vector norm in camera projection
+                            arrowScale = 20 if Mnorm > arrowheadThres else 20 * Mnorm/arrowheadThres # Shrink arrowhead for short arrows
+                            alpha = 1.-2*np.abs((m+.5)/nIsoc-.5)
+                            ax.add_artist(Arrow3D(  [pos[0], pos[0]+M[0]], 
+                                                    [-pos[1], -pos[1]+M[1]],
+                                                    [-pos[2], -pos[2]+M[2]], 
+                                                    mutation_scale=arrowScale,
+                                                    arrowstyle='-|>', shrinkA=0, shrinkB=0, lw=2,
+                                                    color=col, alpha=alpha, 
+                                                    zorder=order[m]+nIsoc*int(100*(1-Mnorm))))
     
     # Draw B1 vector
     if config['plotB1']:
