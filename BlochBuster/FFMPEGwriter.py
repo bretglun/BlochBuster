@@ -1,4 +1,8 @@
 import ffmpeg
+import static_ffmpeg
+
+
+static_ffmpeg.add_paths() # download ffmpeg if needed
 
 class FFMPEGwriter:
     '''Writer class that can add matplotlib figures as frames and then write gif or mp4 using FFMPEG. '''
