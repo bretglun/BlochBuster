@@ -868,7 +868,8 @@ def loadRFfromFile(filename):
         RF pulse as a numpy array (complex if phase was given)
 
     '''
-    with open(filename, 'r') as f:
+    filePath = Path(__file__).parent.parent / filename
+    with open(filePath, 'r') as f:
         try:
             RFstruct = yaml.safe_load(f)
         except yaml.YAMLError as exc:
@@ -1426,11 +1427,13 @@ def run(configFile, leapFactor=1):
     gyro = 42577.			# Gyromagnetic ratio [kHz/T]
 
     # Read configuration file
-    with open(configFile, 'r') as f:
+    configFilePath = Path(__file__).parent.parent / configFile
+    with open(configFilePath, 'r') as f:
         try:
             config = yaml.safe_load(f)
         except yaml.YAMLError as exc:
             raise Exception('Error reading config file') from exc
+    print('Using config file:', configFilePath)
     
     ### Setup config correctly ###
     checkConfig(config)
@@ -1516,11 +1519,12 @@ def run(configFile, leapFactor=1):
                 ffmpegWriter.addFrame(fig)
                 
                 for file in filesToSave:
-                    print('Saving frame {}/{} as "{}"'.format(frame+1, len(config['tFrames']), file))
                     plt.savefig(file, facecolor=plt.gcf().get_facecolor())
+                    print('Saved frame {}/{} to "{}"'.format(frame+1, len(config['tFrames']), file))
 
                 plt.close()
             ffmpegWriter.write(outFile)
+            print('Saved ouput to "{}"'.format(outFile))
 
 
 def parseAndRun():
@@ -1529,9 +1533,9 @@ def parseAndRun():
     # Initiate command line parser
     parser = argparse.ArgumentParser(description='Simulate magnetization vectors using Bloch equations and create animated gif')
     parser.add_argument('--configFile', '-c',
-                        help="Name of configuration text file",
+                        help="Name of configuration yml-file",
                         type=str,
-                        default='')
+                        default='config/SE.yml')
     parser.add_argument('--leapFactor', '-l',
                         help="Leap factor for smaller filesize and fewer frames per second",
                         type=int,
