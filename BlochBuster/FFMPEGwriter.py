@@ -31,16 +31,16 @@ class FFMPEGwriter:
         process.stdin.close()
         process.wait()
 
-    def write(self, filename):
+    def write(self, filePath):
         '''Write frames to gif or mp4 using FFMPEG. 
         
         Args:
-            filename: name of output file. File ending must be ".gif" or ".mp4".
+            filePath: path of output file. File ending must be ".gif" or ".mp4".
 
         '''
 
         frameStream = ffmpeg.input('pipe:', format='rawvideo', pix_fmt='rgb24', framerate=self.fps, s='{}x{}'.format(self.width, self.height))
-        if '.gif' in filename:
+        if filePath.suffix == '.gif':
             paletteFile = 'palette.png'
             paletteProcess = (
                 frameStream
@@ -52,18 +52,18 @@ class FFMPEGwriter:
             
             animationProcess = (
                 frameStream
-                .output(filename, i=paletteFile, filter_complex='paletteuse')
+                .output(str(filePath), i=paletteFile, filter_complex='paletteuse')
                 .overwrite_output()
                 .run_async(pipe_stdin=True)
             )
-        elif '.mp4' in filename:
+        elif filePath.suffix == '.mp4':
             animationProcess = (
                 frameStream
-                .output(filename, pix_fmt='yuv420p', vcodec='h264')
+                .output(str(filePath), pix_fmt='yuv420p', vcodec='h264')
                 .overwrite_output()
                 .run_async(pipe_stdin=True)
             )
         else:
-            raise Exception('FFMPEGwriter expects ".gif" or ".mp4" in filename')
+            raise Exception('FFMPEGwriter expects filePath suffix to be ".gif" or ".mp4"')
 
         self.streamFrames(animationProcess)

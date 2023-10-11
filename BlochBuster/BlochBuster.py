@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # -*- coding: utf-8 -*-
-# Copyright (c) 2017-2022 Johan Berglund
+# Copyright (c) 2017-2023 Johan Berglund
 # BlochBuster is distributed under the terms of the GNU General Public License
 #
 # This program is free software: you can redistribute it and/or modify
@@ -35,7 +35,7 @@ import numpy as np
 from numbers import Number
 import scipy.integrate as integrate
 from scipy.stats import norm
-import os.path
+from pathlib import Path
 import argparse
 import yaml
 import FFMPEGwriter
@@ -1475,7 +1475,7 @@ def run(configFile, leapFactor=1):
     vectors, B1vector = resampleOnPrescribedTimeFrames(vectors, B1vector, config)
     fadeTextFlashes(config)
 
-    outdir = './out'
+    outPath = Path(__file__).parent.parent / 'out'
     for output in config['output']:
         if output['file']:
             if output['type'] in ['xy', 'z']:
@@ -1491,8 +1491,8 @@ def run(configFile, leapFactor=1):
                 if any(comp['composants'] for comp in config['components']):
                     config, vectors = getComposants(config, vectors)
             ffmpegWriter = FFMPEGwriter.FFMPEGwriter(config['fps'])
-            os.makedirs(outdir, exist_ok=True)
-            outfile = os.path.join(outdir, output['file'])
+            outPath.mkdir(exist_ok=True)
+            outFile = outPath / output['file']
             
             output['freezeFrames'] = []
             for t in output['freeze']:
@@ -1511,7 +1511,7 @@ def run(configFile, leapFactor=1):
 
                 filesToSave = []
                 if frame in output['freezeFrames']:
-                    filesToSave.append('{}_{}.png'.format('.'.join(outfile.split('.')[:-1]), str(frame).zfill(4)))
+                    filesToSave.append(outFile.parent / (outFile.stem + '_{}.png'.format(str(frame).zfill(4))))
 
                 ffmpegWriter.addFrame(fig)
                 
@@ -1520,7 +1520,7 @@ def run(configFile, leapFactor=1):
                     plt.savefig(file, facecolor=plt.gcf().get_facecolor())
 
                 plt.close()
-            ffmpegWriter.write(outfile)
+            ffmpegWriter.write(outFile)
 
 
 def parseAndRun():
