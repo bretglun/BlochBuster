@@ -1,4 +1,4 @@
-*Copyright (c) 2017-2023 Johan Berglund*  
+*Copyright (c) 2017-2024 Johan Berglund*  
 *BlochBuster is distributed under the terms of the GNU General Public License*
 
 *This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.*
@@ -81,7 +81,7 @@ The -l flag is optional and specifies a leap factor, allowing frames to be skipp
 
 DEPENDENCIES
 ------------
-See [./environment.yml](environment.yml).
+See [./pyproject.toml](pyproject.toml).
 
 CONTACT INFORMATION
 -------------------
