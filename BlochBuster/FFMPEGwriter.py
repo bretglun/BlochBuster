@@ -1,8 +1,9 @@
 import ffmpeg
 import static_ffmpeg
-
+import numpy as np
 
 static_ffmpeg.add_paths() # download ffmpeg if needed
+
 
 class FFMPEGwriter:
     '''Writer class that can add matplotlib figures as frames and then write gif or mp4 using FFMPEG. '''
@@ -23,7 +24,7 @@ class FFMPEGwriter:
 
         if not (self.width or self.height):
             self.width, self.height = fig.canvas.get_width_height()
-        self.frames.append(fig.canvas.tostring_rgb()) # extract the image as an RGB string
+        self.frames.append(np.asarray(fig.canvas.buffer_rgba(), dtype=np.uint8)[:,:,:3].tobytes()) # fig to RGB bytes
 
     def streamFrames(self, process):
         for frame in self.frames:
