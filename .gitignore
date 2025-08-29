@@ -1,5 +1,6 @@
 /out
 /local_build_docs
+/dist
 /__pycache__
 .*
 *~
